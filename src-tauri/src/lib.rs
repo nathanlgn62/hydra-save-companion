@@ -1,4 +1,7 @@
 mod models;
+mod funcs;
+
+use funcs::watcher::start_process_watcher;
 
 use crate::models::game::HydraGame;
 use crate::models::game::GameProcessInfo;
@@ -10,6 +13,8 @@ use crate::models::ludusavi::LudusaviFileRule;
 use crate::models::ludusavi::LudusaviWhenCondition;
 use crate::models::ludusavi::LudusaviSteamInfo;
 use crate::models::watcher::ProcessMonitorState;
+use crate::models::cloud::DriveFileItem;
+use crate::models::cloud::DriveFileList;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -41,61 +46,6 @@ use winreg::RegKey;
 
 const MANIFEST_URL: &str = "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.json";
 
-// --- Structures Hydra & Google Drive ---
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DriveFileItem {
-    id: String,
-    modified_time: String,
-}
-
-#[derive(Deserialize)]
-struct DriveFileList {
-    files: Vec<DriveFileItem>,
-}
-
-
-pub fn start_process_watcher(app_handle: AppHandle, state: Arc<ProcessMonitorState>) {
-    std::thread::spawn(move || {
-        let mut sys = System::new_all();
-        
-        loop {
-            // Correction 1 : refresh sans argument
-            sys.refresh_processes();
-
-            let monitored = state.monitored_games.lock().unwrap().clone();
-            let mut current_running = state.current_running_game.lock().unwrap();
-
-            let mut detected_game: Option<String> = None;
-
-            for process in sys.processes().values() {
-                // Correction 2 : .to_string() au lieu de .to_string_lossy()
-                let proc_name = process.name().to_string().to_lowercase();
-                for game in &monitored {
-                    if proc_name == game.executable_name.to_lowercase() {
-                        detected_game = Some(game.title.clone());
-                        break;
-                    }
-                }
-                if detected_game.is_some() {
-                    break;
-                }
-            }
-
-            if *current_running != detected_game {
-                if let Some(ref game_title) = detected_game {
-                    let _ = app_handle.emit("game-started", game_title);
-                } else if let Some(ref old_game_title) = *current_running {
-                    let _ = app_handle.emit("game-closed", old_game_title);
-                }
-                *current_running = detected_game;
-            }
-
-            std::thread::sleep(Duration::from_secs(3));
-        }
-    });
-}
 
 pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
     let cache_dir = env::temp_dir().join("hydra_companion");
