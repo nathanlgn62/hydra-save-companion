@@ -996,6 +996,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_oauth::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .run(tauri::generate_context!())
         .expect("erreur lors de l'exécution de l'application tauri");
 }

@@ -62,7 +62,6 @@ export default function App() {
                     remoteDate = syncStatus.cloudTime;
                   }
                 } catch (e) {
-                  // Token expiré ou fichier absent du cloud
                   remoteDate = "Jamais";
                 }
               }
@@ -84,13 +83,12 @@ export default function App() {
         setGames(gamesWithSaves);
 
         const monitoredPayload = gamesWithSaves.map((game) => {
-          // Récupère uniquement la dernière partie du chemin (ex: witcher3.exe)
           const rawPath = game.executablePath || game.title;
           const fileName = rawPath.split(/[/\\]/).pop() || rawPath;
 
           return {
             title: game.title,
-            executable_name: fileName, // On envoie uniquement "witcher3.exe"
+            executable_name: fileName,
             save_path: game.savePath ?? null,
           };
         });
@@ -106,12 +104,17 @@ export default function App() {
     fetchGamesAndSaves();
   }, []);
 
+  const filteredGames = games.filter((g) =>
+    g.title.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-950 text-slate-100 select-none overflow-hidden font-sans">
       <Header />
 
-      <main className="flex flex-row gap-4 flex-wrap p-4 overflow-y-auto flex-1 content-start">
-        <div className="flex items-start gap-3 p-3.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm leading-relaxed backdrop-blur-sm">
+      <main className="flex flex-col flex-1 p-4 overflow-y-auto min-h-0">
+        {/* Banner Info */}
+        <div className="w-full flex items-start gap-3 p-3.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm leading-relaxed backdrop-blur-sm shrink-0 mb-4">
           <svg
             className="w-5 h-5 shrink-0 mt-0.5 text-red-400"
             fill="none"
@@ -134,14 +137,47 @@ export default function App() {
             de leur propre sauvegarde cloud.
           </div>
         </div>
+
+        {/* Dynamic Content */}
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-            Recherche des jeux et sauvegardes...
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
+            <div className="w-6 h-6 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
+            <span className="text-sm">Recherche des jeux et sauvegardes...</span>
+          </div>
+        ) : filteredGames.length > 0 ? (
+          <div className="flex flex-row gap-4 flex-wrap content-start">
+            {filteredGames.map((game) => (
+              <GameCard key={game.objectId} game={game} />
+            ))}
           </div>
         ) : (
-          games
-            .filter((g) => g.title.toLowerCase().includes(search.toLowerCase()))
-            .map((game) => <GameCard key={game.objectId} game={game} />)
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl mb-4 text-slate-500 shadow-xl">
+              <svg
+                className="w-10 h-10 stroke-[1.5]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 10h.01M15 10h.01M9 15s1.5-2 3-2 3 2 3 2"
+                />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-slate-200 mb-2">
+              Aucun jeu détecté
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Vérifiez que <span className="font-bold">Hydra Launcher</span> est bien installé et que des jeux y sont configurés ou ajoutés à votre bibliothèque.
+            </p>
+          </div>
         )}
       </main>
 

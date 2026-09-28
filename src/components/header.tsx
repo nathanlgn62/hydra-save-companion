@@ -1,11 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Cloud, CloudOff, Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSettings } from "../hooks/useSettings";
 
 export default function Header() {
   const [driveConnected, setDriveConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+
+  const { settings, updateSettings, loading: loadingSettings } = useSettings();
 
   useEffect(() => {
     const token = localStorage.getItem("gdrive_token");
@@ -116,42 +119,79 @@ export default function Header() {
             </div>
 
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">
-              <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1.5">
-                  Fréquence de téléchargement des sauvegardes cloud
-                </label>
-                <select className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer">
-                  <option value="5">Toutes les 5 minutes</option>
-                  <option value="15">Toutes les 15 minutes</option>
-                  <option value="30">Toutes les 30 minutes</option>
-                  <option value="manual">Manuel uniquement</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1.5">
-                  Fréquence de téléversement des sauvegardes locales
-                </label>
-                <select className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer">
-                  <option value="5">À chaque fermeture d'un jeu</option>
-                  <option value="manual">Manuel uniquement</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <div>
-                  <span className="text-sm font-medium text-slate-200 block">
-                    Démarrage automatique
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Lancer l'application avec le système
-                  </span>
+              {loadingSettings ? (
+                <div className="text-center py-4 text-xs text-slate-400">
+                  Chargement des paramètres...
                 </div>
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
-                />
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs font-medium text-slate-300 block mb-1.5">
+                      Fréquence de téléchargement des sauvegardes cloud
+                    </label>
+                    <select
+                      value={settings.downloadInterval ?? "manual"}
+                      onChange={(e) =>
+                        updateSettings({
+                          downloadInterval:
+                            e.target.value === "manual"
+                              ? null
+                              : Number(e.target.value),
+                        })
+                      }
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer"
+                    >
+                      <option value="5">Toutes les 5 minutes</option>
+                      <option value="15">Toutes les 15 minutes</option>
+                      <option value="30">Toutes les 30 minutes</option>
+                      <option value="manual">Manuel uniquement</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-slate-300 block mb-1.5">
+                      Fréquence de téléversement des sauvegardes locales
+                    </label>
+                    <select
+                      value={settings.uploadInterval}
+                      onChange={(e) =>
+                        updateSettings({
+                          uploadInterval: e.target.value as
+                            | "afterGameClose"
+                            | "manually",
+                        })
+                      }
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer"
+                    >
+                      <option value="afterGameClose">
+                        À chaque fermeture d'un jeu
+                      </option>
+                      <option value="manually">Manuel uniquement</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <div>
+                      <span className="text-sm font-medium text-slate-200 block">
+                        Démarrage automatique
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Lancer l'application avec le système
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.autoStartWithSystem}
+                      onChange={(e) =>
+                        updateSettings({
+                          autoStartWithSystem: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/50">

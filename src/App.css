@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Force la palette sombre pour tous les contrôles natifs du navigateur/webview */
+:root {
+  color-scheme: dark;
+}
+
+/* Surcharge ciblée pour garantir la lisibilité des options dans les balises <select> */
+option {
+  background-color: #0f172a; /* slate-900 */
+  color: #f1f5f9;            /* slate-100 */
+}
+
 body {
   margin: 0;
   background-color: #0f172a;
