@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   AlertTriangle,
+  CheckCircle2,
   Cloud,
+  CloudUpload,
   FolderOpen,
   Gamepad,
   HardDrive,
+  HelpCircle,
   Send,
   X,
 } from "lucide-react";
@@ -38,22 +41,24 @@ export default function GameCard({ game }: GameCardProps) {
       return;
     }
 
-    const tokenParts = storedToken.split("|");
-    const accessToken = tokenParts[0];
+    if (!game.savePath) {
+      alert("Aucun chemin de sauvegarde local trouvé pour ce jeu.");
+      return;
+    }
 
     setIsSyncing(true);
     try {
-      // Pour l'instant, on envoie un texte de test basé sur le jeu
-      const dummyContent = `Sauvegarde de test pour le jeu : ${game.title} (AppID: ${game.appId || "N/A"})`;
+      const accessToken = storedToken.split("|")[0];
 
       const result = await invoke<string>("upload_game_save_to_drive", {
         token: accessToken,
         gameTitle: game.title,
-        saveContent: dummyContent,
+        savePath: game.savePath,
       });
 
       console.log(result);
       alert(`Synchronisation réussie pour ${game.title} !`);
+      // Tu pourras ajouter ici un rechargement de la liste si besoin
     } catch (err) {
       console.error("Erreur lors de la synchronisation :", err);
       alert(`Échec de la synchronisation : ${err}`);
@@ -74,7 +79,7 @@ export default function GameCard({ game }: GameCardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           game: game.title,
-          appId: game.appId,
+          appId: game.objectId,
           savePath: game.savePath,
           message: message,
         }),
@@ -93,12 +98,52 @@ export default function GameCard({ game }: GameCardProps) {
     }
   };
 
+  // Détermination du badge d'état
+  const getSyncBadge = () => {
+    if (!game.savePath) {
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-400 text-[10px] font-medium backdrop-blur-md">
+          <HelpCircle className="w-3 h-3" />
+          <span>Aucune sauvegarde</span>
+        </div>
+      );
+    }
+
+    if (game.lastRemoteSave === "Jamais" || !game.lastRemoteSave) {
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-medium backdrop-blur-md">
+          <Cloud className="w-3 h-3" />
+          <span>Jamais sync</span>
+        </div>
+      );
+    }
+
+    if (game.lastLocalSave === game.lastRemoteSave) {
+      return (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-medium backdrop-blur-md">
+          <CheckCircle2 className="w-3 h-3" />
+          <span>À jour</span>
+        </div>
+      );
+    }
+
+    // Comparaison basique des chaînes ou états logiques (tu peux affiner selon tes besoins)
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-medium backdrop-blur-md">
+        <CloudUpload className="w-3 h-3" />
+        <span>Modifié</span>
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="w-[calc(33.333%-11px)] bg-slate-900/90 border border-slate-800/80 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 flex flex-col group">
         <div className="relative w-full aspect-[2/2] bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col items-center justify-center p-4 text-center border-b border-slate-800/60 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-40 pointer-events-none" />
+          {/* Badge d'état en haut à droite */}
+          <div className="absolute top-3 right-3 z-20">{getSyncBadge()}</div>
 
+          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-40 pointer-events-none" />
           <div className="relative z-10 flex flex-col items-center gap-3 group-hover:scale-105 transition-transform duration-300">
             <div className="w-12 h-12 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-slate-400 group-hover:border-indigo-500/50 group-hover:text-indigo-400 shadow-inner transition-colors">
               <Gamepad size={24} />
@@ -163,7 +208,7 @@ export default function GameCard({ game }: GameCardProps) {
             <button
               type="button"
               onClick={handleSync}
-              disabled={isSyncing}
+              disabled={isSyncing || !game.savePath}
               className="flex-1 py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-sm shadow-indigo-900/30 transition-all cursor-pointer"
             >
               {isSyncing ? "Sync..." : "Synchroniser"}

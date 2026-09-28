@@ -1,13 +1,24 @@
+mod models;
+
+use crate::models::game::HydraGame;
+use crate::models::game::GameProcessInfo;
+use crate::models::save::SaveInfo;
+use crate::models::sync::SyncStatusResult;
+use crate::models::ludusavi::LudusaviManifest;
+use crate::models::ludusavi::LudusaviGame;
+use crate::models::ludusavi::LudusaviFileRule;
+use crate::models::ludusavi::LudusaviWhenCondition;
+use crate::models::ludusavi::LudusaviSteamInfo;
+use crate::models::watcher::ProcessMonitorState;
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, AppHandle, Emitter
 };
-
 use tauri_plugin_oauth::start_with_config;
 use tauri_plugin_oauth::OauthConfig;
-
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use regex::Regex;
 use rusty_leveldb::{LdbIterator, Options, DB};
 use serde::{Deserialize, Serialize};
@@ -17,6 +28,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use url::Url;
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use sysinfo::System;
 
 #[cfg(target_os = "windows")]
 use winreg::enums::*;
@@ -25,57 +41,61 @@ use winreg::RegKey;
 
 const MANIFEST_URL: &str = "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.json";
 
-// --- Structures Hydra ---
+// --- Structures Hydra & Google Drive ---
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HydraGame {
-    pub title: String,
-    pub object_id: String,
-    pub shop: Option<String>,
-    pub executable_path: Option<String>,
-    pub is_deleted: Option<bool>,
-    pub icon_url: Option<String>,
-    pub has_active_steam_import: Option<bool>,
+struct DriveFileItem {
+    id: String,
+    modified_time: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SaveInfo {
-    pub path_exists: bool,
-    pub resolved_path: Option<String>,
-    pub last_modified: Option<String>,
+#[derive(Deserialize)]
+struct DriveFileList {
+    files: Vec<DriveFileItem>,
 }
 
-// --- Structures du Manifest Ludusavi ---
 
-#[derive(Debug, Deserialize)]
-pub struct LudusaviManifest {
-    pub games: HashMap<String, LudusaviGame>,
+pub fn start_process_watcher(app_handle: AppHandle, state: Arc<ProcessMonitorState>) {
+    std::thread::spawn(move || {
+        let mut sys = System::new_all();
+        
+        loop {
+            // Correction 1 : refresh sans argument
+            sys.refresh_processes();
+
+            let monitored = state.monitored_games.lock().unwrap().clone();
+            let mut current_running = state.current_running_game.lock().unwrap();
+
+            let mut detected_game: Option<String> = None;
+
+            for process in sys.processes().values() {
+                // Correction 2 : .to_string() au lieu de .to_string_lossy()
+                let proc_name = process.name().to_string().to_lowercase();
+                for game in &monitored {
+                    if proc_name == game.executable_name.to_lowercase() {
+                        detected_game = Some(game.title.clone());
+                        break;
+                    }
+                }
+                if detected_game.is_some() {
+                    break;
+                }
+            }
+
+            if *current_running != detected_game {
+                if let Some(ref game_title) = detected_game {
+                    let _ = app_handle.emit("game-started", game_title);
+                } else if let Some(ref old_game_title) = *current_running {
+                    let _ = app_handle.emit("game-closed", old_game_title);
+                }
+                *current_running = detected_game;
+            }
+
+            std::thread::sleep(Duration::from_secs(3));
+        }
+    });
 }
-
-#[derive(Debug, Deserialize)]
-pub struct LudusaviGame {
-    pub files: Option<HashMap<String, LudusaviFileRule>>,
-    pub steam: Option<LudusaviSteamInfo>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct LudusaviFileRule {
-    pub when: Option<Vec<LudusaviWhenCondition>>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct LudusaviWhenCondition {
-    pub os: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct LudusaviSteamInfo {
-    pub id: Option<u64>,
-}
-
-// --- Gestion du téléchargement du Manifest ---
 
 pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
     let cache_dir = env::temp_dir().join("hydra_companion");
@@ -311,7 +331,6 @@ fn get_candidate_paths(app_id: Option<&str>, title: &str) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     let clean_title = title.replace(':', "").replace('/', "").replace('\\', "");
 
-    // 1. Si un AppID est transmis
     if let Some(id) = app_id {
         if !id.trim().is_empty() {
             candidates.push(expand_path(&format!(r"%PUBLIC%\Documents\Steam\RUNE\{}", id)));
@@ -330,7 +349,6 @@ fn get_candidate_paths(app_id: Option<&str>, title: &str) -> Vec<PathBuf> {
         }
     }
 
-    // 2. Fallbacks spécifiques pour The Witcher 3 (AppIDs connus + dossier GOG)
     if title.to_lowercase().contains("witcher") {
         let tw3_ids = ["292030", "378120", "499450"];
         for id in tw3_ids {
@@ -346,7 +364,6 @@ fn get_candidate_paths(app_id: Option<&str>, title: &str) -> Vec<PathBuf> {
         candidates.push(expand_path(r"%USERPROFILE%\Documents\The Witcher 3 Wild Hunt\gamesaves"));
     }
 
-    // 3. Chemins génériques par nom de dossier
     candidates.push(expand_path(&format!(r"%USERPROFILE%\Saved Games\{}", clean_title)));
     candidates.push(expand_path(&format!(r"%USERPROFILE%\Documents\{}\gamesaves", clean_title)));
     candidates.push(expand_path(&format!(r"%USERPROFILE%\Documents\{}", clean_title)));
@@ -355,6 +372,104 @@ fn get_candidate_paths(app_id: Option<&str>, title: &str) -> Vec<PathBuf> {
     candidates.push(expand_path(&format!(r"%APPDATA%\{}", clean_title)));
 
     candidates
+}
+
+// --- Helper interne pour récupérer l'ID du dossier Google Drive ---
+
+// Fonction utilitaire pour rafraîchir l'access token si nécessaire
+async fn get_valid_access_token(client: &reqwest::Client, token_store: &str) -> Result<String, String> {
+    let parts: Vec<&str> = token_store.split('|').collect();
+    let access_token = parts.first().unwrap_or(&"");
+    let refresh_token = parts.get(1).unwrap_or(&"");
+
+    if refresh_token.is_empty() {
+        return Ok(access_token.to_string());
+    }
+
+    let client_id = "742327849744-gsham3lda4i5pm37jmu2cj10c6mf215i.apps.googleusercontent.com";
+    let client_secret = "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";
+
+    let params = [
+        ("client_id", client_id),
+        ("client_secret", client_secret),
+        ("refresh_token", *refresh_token),
+        ("grant_type", "refresh_token"),
+    ];
+
+    let res = client
+        .post("https://oauth2.googleapis.com/token")
+        .form(&params)
+        .send()
+        .await;
+
+    if let Ok(response) = res {
+        if response.status().is_success() {
+            if let Ok(json) = response.json::<serde_json::Value>().await {
+                if let Some(new_access) = json.get("access_token").and_then(|t| t.as_str()) {
+                    return Ok(new_access.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(access_token.to_string())
+}
+
+async fn get_or_create_drive_folder(client: &reqwest::Client, token_store: &str) -> Result<String, String> {
+    let token = get_valid_access_token(client, token_store).await?;
+
+    let query = "name = 'hydra-save-companion' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    let search_res = client
+        .get("https://www.googleapis.com/drive/v3/files")
+        .query(&[("q", query)])
+        .bearer_auth(&token)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau recherche dossier : {}", e))?;
+
+    if !search_res.status().is_success() {
+        let err_body = search_res.text().await.unwrap_or_default();
+        return Err(format!("Erreur API Google (Recherche dossier) : {}", err_body));
+    }
+
+    let search_json = search_res
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Erreur parsing JSON recherche : {}", e))?;
+
+    if let Some(files) = search_json.get("files").and_then(|f| f.as_array()) {
+        if let Some(folder) = files.first() {
+            return Ok(folder.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string());
+        }
+    }
+
+    let folder_metadata = serde_json::json!({
+        "name": "hydra-save-companion",
+        "mimeType": "application/vnd.google-apps.folder"
+    });
+
+    let create_res = client
+        .post("https://www.googleapis.com/drive/v3/files")
+        .bearer_auth(&token)
+        .json(&folder_metadata)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau création dossier : {}", e))?;
+
+    if !create_res.status().is_success() {
+        let err_body = create_res.text().await.unwrap_or_default();
+        return Err(format!("Erreur API Google (Création dossier) : {}", err_body));
+    }
+
+    let create_json = create_res
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Erreur parsing JSON création : {}", e))?;
+
+    create_json.get("id")
+        .and_then(|i| i.as_str())
+        .ok_or("ID du dossier introuvable après création".to_string())
+        .map(|s| s.to_string())
 }
 
 // --- Commandes Tauri ---
@@ -414,7 +529,6 @@ fn get_game_save_info(
     title: String,
     custom_path: Option<String>,
 ) -> SaveInfo {
-    // 1. Chemin personnalisé
     if let Some(ref path_str) = custom_path {
         if !path_str.trim().is_empty() {
             let p = expand_path(path_str);
@@ -433,11 +547,9 @@ fn get_game_save_info(
         }
     }
 
-    // 2. Recherche via Manifest Ludusavi
     if let Ok(manifest) = get_or_fetch_manifest() {
         let title_lower = title.to_lowercase();
 
-        // Recherche souple : Titre exact, contient le titre, ou via AppID Steam
         let game_entry = manifest.games.get(&title)
             .or_else(|| {
                 manifest.games.iter().find_map(|(k, v)| {
@@ -486,7 +598,6 @@ fn get_game_save_info(
         }
     }
 
-    // 3. Fallback sur les candidats manuels
     let candidates = get_candidate_paths(app_id.as_deref(), &title);
     for path in candidates {
         if path.exists() {
@@ -508,6 +619,127 @@ fn get_game_save_info(
         resolved_path: None,
         last_modified: None,
     }
+}
+
+#[tauri::command]
+async fn check_game_sync_status(
+    token: String,
+    game_title: String,
+    save_path: String,
+) -> Result<SyncStatusResult, String> {
+    use chrono::Local;
+
+    let path = Path::new(&save_path);
+    if !path.exists() {
+        return Err(format!("Le chemin de sauvegarde local est introuvable : {}", save_path));
+    }
+
+    let local_st = get_latest_modified_time(path)
+        .ok_or("Impossible de récupérer la date de modification locale")?;
+    let local_modified: DateTime<Utc> = local_st.into();
+
+    let client = reqwest::Client::new();
+    let access_token = get_valid_access_token(&client, &token).await?;
+    let folder_id = get_or_create_drive_folder(&client, &token).await?;
+
+    let file_name = format!("{}.zip", game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_"));
+    
+    let query = format!(
+        "name = '{}' and mimeType = 'application/zip' and trashed = false and '{}' in parents",
+        file_name, folder_id
+    );
+
+    let url = format!(
+        "https://www.googleapis.com/drive/v3/files?q={}&fields=files(id,modifiedTime,name,appProperties)",
+        urlencoding::encode(&query)
+    );
+
+    let res = client
+        .get(&url)
+        .bearer_auth(&access_token)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau vérification sync : {}", e))?;
+
+    let status = res.status();
+    let err_text = res.text().await.unwrap_or_default();
+
+    if !status.is_success() {
+        return Err(format!("Erreur API Google : {}", err_text));
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&err_text)
+        .map_err(|e| format!("Erreur parsing JSON : {}", e))?;
+
+    let files = json.get("files").and_then(|f| f.as_array());
+
+    // Conversion de la date locale en heure de la machine (France / Local) pour l'affichage
+    let local_in_zone = local_modified.with_timezone(&Local);
+    let local_str = local_in_zone.format("%d/%m/%Y %H:%M").to_string();
+
+    if let Some(files_array) = files {
+        if let Some(file) = files_array.first() {
+            // 1. On récupère la chaîne stockée dans appProperties ou le fallback
+            let cloud_str_raw = if let Some(app_props) = file.get("appProperties") {
+                if let Some(custom_date) = app_props.get("localModified").and_then(|v| v.as_str()) {
+                    if !custom_date.is_empty() {
+                        custom_date.to_string()
+                    } else {
+                        get_fallback_cloud_time(file)
+                    }
+                } else {
+                    get_fallback_cloud_time(file)
+                }
+            } else {
+                get_fallback_cloud_time(file)
+            };
+
+            // Parse de la date cloud pour la comparaison logique
+            let cloud_modified_utc = DateTime::parse_from_str(&format!("{}:00 +0000", cloud_str_raw), "%d/%m/%Y %H:%M:%S %z")
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or(local_modified);
+
+            // Conversion de la date cloud en heure locale pour l'affichage final
+            let cloud_in_zone = cloud_modified_utc.with_timezone(&Local);
+            let cloud_str = cloud_in_zone.format("%d/%m/%Y %H:%M").to_string();
+
+            if local_modified > cloud_modified_utc {
+                return Ok(SyncStatusResult {
+                    status: "LocalNewer".to_string(),
+                    localTime: local_str,
+                    cloudTime: cloud_str,
+                });
+            } else if cloud_modified_utc > local_modified {
+                return Ok(SyncStatusResult {
+                    status: "CloudNewer".to_string(),
+                    localTime: local_str,
+                    cloudTime: cloud_str,
+                });
+            } else {
+                return Ok(SyncStatusResult {
+                    status: "UpToDate".to_string(),
+                    localTime: local_str,
+                    cloudTime: cloud_str,
+                });
+            }
+        }
+    }
+
+    Ok(SyncStatusResult {
+        status: "NotFound".to_string(),
+        localTime: local_str,
+        cloudTime: "Jamais".to_string(),
+    })
+}
+
+fn get_fallback_cloud_time(file: &serde_json::Value) -> String {
+    use chrono::Local;
+    if let Some(modified_time_str) = file.get("modifiedTime").and_then(|t| t.as_str()) {
+        if let Ok(cloud_modified) = DateTime::parse_from_rfc3339(modified_time_str) {
+            return cloud_modified.with_timezone(&Local).format("%d/%m/%Y %H:%M").to_string();
+        }
+    }
+    "Jamais".to_string()
 }
 
 #[tauri::command]
@@ -538,9 +770,11 @@ fn open_folder(path: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn login_google() -> Result<String, String> {
-    // Tu mets tes vraies clés directement ici (ou via env!("GOOGLE_CLIENT_ID"))
-    let client_id = "742327849744-gsham3lda4i5pm37jmu2cj10c6mf215i.apps.googleusercontent.com";
-    let client_secret = "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";
+    let client_id = std::env::var("HSC-GC-ID")
+        .map_err(|_| "La variable GOOGLE_CLIENT_ID est manquante".to_string())?;
+
+    let client_secret = std::env::var("HSC-GS")
+        .map_err(|_| "La variable GOOGLE_CLIENT_SECRET est manquante".to_string())?;
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     let tx_cell = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
@@ -582,8 +816,8 @@ async fn login_google() -> Result<String, String> {
     let client = reqwest::Client::new();
     let params = [
         ("code", code.as_str()),
-        ("client_id", client_id),
-        ("client_secret", client_secret),
+        ("client_id", client_id.as_str()),
+        ("client_secret", client_secret.as_str()),
         ("redirect_uri", redirect_uri),
         ("grant_type", "authorization_code"),
     ];
@@ -602,12 +836,10 @@ async fn login_google() -> Result<String, String> {
         .and_then(|t| t.as_str())
         .ok_or("Access token introuvable")?;
         
-    // Récupère aussi le refresh token si Google le renvoie (présent à la première connexion)
     let refresh_token = res.get("refresh_token")
         .and_then(|t| t.as_str())
         .unwrap_or("");
 
-    // Tu peux renvoyer un JSON ou une structure combinée, par exemple "access_token|refresh_token"
     Ok(format!("{}|{}", access_token, refresh_token))
 }
 
@@ -615,73 +847,61 @@ async fn login_google() -> Result<String, String> {
 async fn upload_game_save_to_drive(
     token: String,
     game_title: String,
-    save_content: String,
+    save_path: String,
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
+    let access_token = get_valid_access_token(&client, &token).await?;
+    let folder_id = get_or_create_drive_folder(&client, &token).await?;
 
-    // Étape 1 : Chercher le dossier "hydra-save-companion"
-    let query = "name = 'hydra-save-companion' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-    let search_res = client
-        .get("https://www.googleapis.com/drive/v3/files")
-        .query(&[("q", query)])
-        .bearer_auth(&token)
-        .send()
-        .await
-        .map_err(|e| format!("Erreur réseau recherche : {}", e))?;
-
-    if !search_res.status().is_success() {
-        let err_body = search_res.text().await.unwrap_or_default();
-        return Err(format!("Erreur API Google (Recherche) : {}", err_body));
+    let path = std::path::Path::new(&save_path);
+    if !path.exists() {
+        return Err(format!("Le chemin de sauvegarde local est introuvable : {}", save_path));
     }
 
-    let search_json = search_res
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| format!("Erreur parsing JSON recherche : {}", e))?;
+    // Récupérer la date de modification locale pour l'isoler et l'envoyer en métadonnée
+    let local_modified_str = get_latest_modified_time(path)
+        .map(|st| {
+            let dt: chrono::DateTime<chrono::Utc> = st.into();
+            dt.format("%d/%m/%Y %H:%M").to_string() // Format identique à ton lastModified
+        })
+        .unwrap_or_else(|| "".to_string());
 
-    let folder_id = if let Some(files) = search_json.get("files").and_then(|f| f.as_array()) {
-        if let Some(folder) = files.first() {
-            folder.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string()
-        } else {
-            // Le dossier n'existe pas, on le crée
-            let folder_metadata = serde_json::json!({
-                "name": "hydra-save-companion",
-                "mimeType": "application/vnd.google-apps.folder"
-            });
+    let mut zip_buffer = Vec::new();
+    {
+        let cursor = std::io::Cursor::new(&mut zip_buffer);
+        let mut zip = zip::ZipWriter::new(cursor);
+        let options = zip::write::FileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
 
-            let create_res = client
-                .post("https://www.googleapis.com/drive/v3/files")
-                .bearer_auth(&token)
-                .json(&folder_metadata)
-                .send()
-                .await
-                .map_err(|e| format!("Erreur réseau création dossier : {}", e))?;
-
-            if !create_res.status().is_success() {
-                let err_body = create_res.text().await.unwrap_or_default();
-                return Err(format!("Erreur API Google (Création dossier) : {}", err_body));
+        if path.is_dir() {
+            let walk = walkdir::WalkDir::new(path);
+            for entry in walk.into_iter().filter_map(|e| e.ok()) {
+                let entry_path = entry.path();
+                if entry_path.is_file() {
+                    let name = entry_path.strip_prefix(path).map_err(|e| e.to_string())?;
+                    zip.start_file(name.to_string_lossy(), options).map_err(|e| e.to_string())?;
+                    let mut f = std::fs::File::open(entry_path).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+                }
             }
-
-            let create_json = create_res
-                .json::<serde_json::Value>()
-                .await
-                .map_err(|e| format!("Erreur parsing JSON création : {}", e))?;
-
-            create_json.get("id")
-                .and_then(|i| i.as_str())
-                .ok_or("ID du dossier introuvable après création".to_string())?
-                .to_string()
+        } else {
+            let file_name = path.file_name().ok_or("Nom de fichier invalide")?.to_string_lossy();
+            zip.start_file(file_name, options).map_err(|e| e.to_string())?;
+            let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+            std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
         }
-    } else {
-        return Err("Format de réponse Google Drive invalide".to_string());
-    };
+        zip.finish().map_err(|e| e.to_string())?;
+    }
 
-    // Étape 2 : Upload du fichier .txt
-    let file_name = format!("{}.txt", game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_"));
+    let file_name = format!("{}.zip", game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_"));
     
+    // Ajout de appProperties pour stocker la vraie date locale
     let metadata = serde_json::json!({
         "name": file_name,
-        "parents": [folder_id]
+        "parents": [folder_id],
+        "appProperties": {
+            "localModified": local_modified_str
+        }
     });
 
     let multipart = reqwest::multipart::Form::new()
@@ -693,25 +913,33 @@ async fn upload_game_save_to_drive(
         )
         .part(
             "file",
-            reqwest::multipart::Part::text(save_content)
-                .mime_str("text/plain")
+            reqwest::multipart::Part::bytes(zip_buffer)
+                .file_name(file_name.clone())
+                .mime_str("application/zip")
                 .map_err(|e| e.to_string())?,
         );
 
     let upload_res = client
         .post("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart")
-        .bearer_auth(&token)
+        .bearer_auth(&access_token)
         .multipart(multipart)
         .send()
         .await
         .map_err(|e| format!("Erreur réseau upload : {}", e))?;
 
     if upload_res.status().is_success() {
-        Ok(format!("Fichier '{}' uploadé avec succès !", file_name))
+        Ok(format!("Archive '{}' uploadée avec succès !", file_name))
     } else {
         let err_text = upload_res.text().await.unwrap_or_default();
         Err(format!("Erreur lors de l'upload : {}", err_text))
     }
+}
+
+#[tauri::command]
+fn set_monitored_games(app: tauri::AppHandle, games: Vec<GameProcessInfo>) {
+    let state = app.state::<Arc<ProcessMonitorState>>();
+    let mut monitored = state.monitored_games.lock().unwrap();
+    *monitored = games;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -720,9 +948,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_installed_games,
             get_game_save_info,
+            check_game_sync_status,
             open_folder,
             login_google,
-            upload_game_save_to_drive
+            upload_game_save_to_drive,
+            set_monitored_games
         ])
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
@@ -753,6 +983,15 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            let monitor_state = Arc::new(ProcessMonitorState {
+                monitored_games: Mutex::new(vec![]),
+                current_running_game: Mutex::new(None),
+            });
+            app.manage(monitor_state.clone());
+
+            let handle = app.handle().clone();
+            start_process_watcher(handle, monitor_state);
 
             Ok(())
         })

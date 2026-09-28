@@ -6,7 +6,7 @@ import Header from "./components/header";
 import { HydraGame } from "./types/game";
 
 interface SaveInfoResponse {
-  path_exists: boolean;
+  pathExists: boolean;
   resolvedPath: string | null;
   lastModified: string | null;
 }
@@ -18,9 +18,16 @@ export default function App() {
 
   useEffect(() => {
     async function fetchGamesAndSaves() {
+      console.log("Fetch Hydra Launcher Installed Games");
       try {
         setLoading(true);
         const installedGames = await invoke<HydraGame[]>("get_installed_games");
+
+        const storedToken = localStorage.getItem("gdrive_token");
+        let accessToken = null;
+        if (storedToken) {
+          accessToken = storedToken.split("|")[0];
+        }
 
         const gamesWithSaves = await Promise.all(
           installedGames.map(async (game) => {
@@ -33,11 +40,37 @@ export default function App() {
                 },
               );
 
-              console.log(saveInfo);
+              let remoteDate = "Jamais";
+
+              if (saveInfo.pathExists && saveInfo.resolvedPath && accessToken) {
+                try {
+                  const syncStatus = await invoke<any>(
+                    "check_game_sync_status",
+                    {
+                      token: accessToken,
+                      gameTitle: game.title,
+                      savePath: saveInfo.resolvedPath,
+                    },
+                  );
+
+                  if (syncStatus.status === "UpToDate") {
+                    remoteDate = syncStatus.localTime;
+                  } else if (
+                    syncStatus.status === "LocalNewer" ||
+                    syncStatus.status === "CloudNewer"
+                  ) {
+                    remoteDate = syncStatus.cloudTime;
+                  }
+                } catch (e) {
+                  // Token expiré ou fichier absent du cloud
+                  remoteDate = "Jamais";
+                }
+              }
 
               return {
                 ...game,
                 lastLocalSave: saveInfo.lastModified ?? "Jamais",
+                lastRemoteSave: remoteDate,
                 savePath: saveInfo.resolvedPath,
               } as HydraGame;
             } catch (err) {
@@ -49,6 +82,20 @@ export default function App() {
 
         console.log(gamesWithSaves);
         setGames(gamesWithSaves);
+
+        const monitoredPayload = gamesWithSaves.map((game) => {
+          // Récupère uniquement la dernière partie du chemin (ex: witcher3.exe)
+          const rawPath = game.executablePath || game.title;
+          const fileName = rawPath.split(/[/\\]/).pop() || rawPath;
+
+          return {
+            title: game.title,
+            executable_name: fileName, // On envoie uniquement "witcher3.exe"
+            save_path: game.savePath ?? null,
+          };
+        });
+
+        await invoke("set_monitored_games", { games: monitoredPayload });
       } catch (err) {
         console.error("Erreur lors du chargement des jeux :", err);
       } finally {

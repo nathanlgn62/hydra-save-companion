@@ -3,8 +3,8 @@ export interface HydraGame {
   objectId: string;
   shop?: string;
   executablePath?: string;
-  isDeleted?: boolean;
   iconUrl?: string;
-  lastLocalSave: string;
+  lastLocalSave?: string;
+  lastRemoteSave?: string;
   savePath: string;
 }
