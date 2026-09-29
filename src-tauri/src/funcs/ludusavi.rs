@@ -1,4 +1,11 @@
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+
 use crate::models::ludusavi::LudusaviManifest;
+
+const MANIFEST_URL: &str =
+    "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.json";
 
 pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
     let cache_dir = env::temp_dir().join("hydra_companion");
@@ -34,4 +41,102 @@ pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
 
     serde_json::from_str::<LudusaviManifest>(&content)
         .map_err(|e| format!("Erreur de parsing du manifest Ludusavi : {}", e))
+}
+
+#[cfg(target_os = "windows")]
+pub fn get_active_steam_user_id() -> Option<String> {
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let steam_key = hkcu
+        .open_subkey(r"Software\Valve\Steam\ActiveProcess")
+        .ok()?;
+    let user_id: u32 = steam_key.get_value("ActiveUser").ok()?;
+    if user_id != 0 {
+        Some(user_id.to_string())
+    } else {
+        None
+    }
+}
+
+pub fn resolve_ludusavi_placeholders(path_str: &str, app_id: Option<&str>) -> String {
+    let mut resolved = path_str.to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        let user_profile = env::var("USERPROFILE").unwrap_or_default();
+        let appdata = env::var("APPDATA").unwrap_or_default();
+        let localappdata = env::var("LOCALAPPDATA").unwrap_or_default();
+        let public = env::var("PUBLIC").unwrap_or_else(|_| r"C:\Users\Public".to_string());
+
+        resolved = resolved.replace("<winDocuments>", &format!(r"{}\Documents", user_profile));
+        resolved = resolved.replace("<winAppData>", &appdata);
+        resolved = resolved.replace("<winLocalAppData>", &localappdata);
+        resolved = resolved.replace(
+            "<winLocalAppDataLow>",
+            &format!(r"{}\AppData\LocalLow", user_profile),
+        );
+        resolved = resolved.replace("<winSavedGames>", &format!(r"{}\Saved Games", user_profile));
+        resolved = resolved.replace("<winPublic>", &public);
+        resolved = resolved.replace("<winProgramData>", r"C:\ProgramData");
+
+        if resolved.contains("<storeUserId>") || resolved.contains("<steamUser>") {
+            let active_steam_id = get_active_steam_user_id().unwrap_or_else(|| "*".to_string());
+            resolved = resolved.replace("<storeUserId>", &active_steam_id);
+            resolved = resolved.replace("<steamUser>", &active_steam_id);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = env::var("HOME").unwrap_or_default();
+        resolved = resolved.replace("<home>", &home);
+        resolved = resolved.replace("<xdgConfig>", &format!("{}/.config", home));
+        resolved = resolved.replace("<xdgData>", &format!("{}/.local/share", home));
+    }
+
+    if let Some(id) = app_id {
+        resolved = resolved.replace("<game>", id);
+    }
+
+    resolved.replace('/', "\\")
+}
+
+pub fn resolve_path_pattern(pattern: &str) -> Option<PathBuf> {
+    let path = PathBuf::from(pattern);
+
+    if path.exists() {
+        return Some(path);
+    }
+
+    if pattern.contains('*') {
+        let parts: Vec<&str> = pattern.split('\\').collect();
+        let mut current_base = PathBuf::from(parts[0]);
+
+        for part in &parts[1..] {
+            if part.contains('*') {
+                if let Ok(entries) = fs::read_dir(&current_base) {
+                    let mut found = false;
+                    for entry in entries.flatten() {
+                        if entry.path().is_dir() {
+                            current_base = entry.path();
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            } else {
+                current_base = current_base.join(part);
+            }
+        }
+
+        if current_base.exists() {
+            return Some(current_base);
+        }
+    }
+
+    None
 }
