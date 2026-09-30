@@ -1,9 +1,9 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Store } from "@tauri-apps/plugin-store";
-import { useEffect, useState } from "react";
 
 export interface UserSettings {
   uploadInterval: "afterGameClose" | "manually";
-  downloadInterval: number | null;
+  downloadInterval: number | "manually";
   autoStartWithSystem: boolean;
 }
 
@@ -23,47 +23,52 @@ async function getStore() {
 }
 
 export function useSettings() {
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const store = await getStore();
-        const savedSettings = await store.get<UserSettings>("user_prefs");
+  // 1. Requête unique et partagée pour lire les settings
+  const { data: settings = DEFAULT_SETTINGS, isLoading: loading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async (): Promise<UserSettings> => {
+      const store = await getStore();
+      const saved = await store.get<UserSettings>("user_prefs");
 
-        if (savedSettings) {
-          setSettings({ ...DEFAULT_SETTINGS, ...savedSettings });
-        } else {
-          await store.set("user_prefs", DEFAULT_SETTINGS);
-          await store.save();
-        }
-      } catch (err) {
-        console.error("Erreur chargement settings:", err);
-      } finally {
-        setLoading(false);
+      if (saved) {
+        return { ...DEFAULT_SETTINGS, ...saved };
       }
-    }
 
-    loadSettings();
-  }, []);
+      await store.set("user_prefs", DEFAULT_SETTINGS);
+      await store.save();
+      return DEFAULT_SETTINGS;
+    },
+    staleTime: Infinity, // Garde les settings en mémoire sans refetch inutile
+  });
 
-  const updateSettings = async (newPartialSettings: Partial<UserSettings>) => {
-    try {
-      let updatedSettings: UserSettings = DEFAULT_SETTINGS;
-
-      setSettings((prev) => {
-        updatedSettings = { ...prev, ...newPartialSettings };
-        return updatedSettings;
-      });
+  // 2. Mutation réactive pour sauvegarder et notifier toute l'UI
+  const mutation = useMutation({
+    mutationFn: async (newPartialSettings: Partial<UserSettings>) => {
+      const currentSettings =
+        queryClient.getQueryData<UserSettings>(["settings"]) ??
+        DEFAULT_SETTINGS;
+      const updatedSettings: UserSettings = {
+        ...currentSettings,
+        ...newPartialSettings,
+      };
 
       const store = await getStore();
       await store.set("user_prefs", updatedSettings);
       await store.save();
-    } catch (err) {
-      console.error("Erreur sauvegarde settings:", err);
-    }
-  };
 
-  return { settings, updateSettings, loading };
+      return updatedSettings;
+    },
+    onSuccess: (updatedSettings) => {
+      // Invalide et met à jour instantanément toutes les instances de GameCard
+      queryClient.setQueryData(["settings"], updatedSettings);
+    },
+  });
+
+  return {
+    settings,
+    updateSettings: mutation.mutateAsync,
+    loading,
+  };
 }

@@ -1,28 +1,29 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(serde::Deserialize, Debug, Clone)]
 pub struct LudusaviManifest {
-    pub games: HashMap<String, LudusaviGame>,
+    #[serde(flatten)]
+    pub games: HashMap<String, GameEntry>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LudusaviGame {
-    pub files: Option<HashMap<String, LudusaviFileRule>>,
-    pub steam: Option<LudusaviSteamInfo>,
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct GameEntry {
+    pub files: Option<HashMap<String, FileRule>>,
+    pub steam: Option<SteamInfo>,
+    // Ajoute ici les autres champs si nécessaire selon ton code existant
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LudusaviFileRule {
-    pub when: Option<Vec<LudusaviWhenCondition>>,
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct FileRule {
+    pub when: Option<Vec<Condition>>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LudusaviWhenCondition {
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct Condition {
     pub os: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LudusaviSteamInfo {
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct SteamInfo {
     pub id: Option<u64>,
 }

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Cloud, CloudOff, Settings, X } from "lucide-react";
+import { Cloud, CloudOff, RefreshCw, Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAutoDownloadSaves } from "../hooks/useAutoSync";
 import { useSettings } from "../hooks/useSettings";
 
 export default function Header() {
@@ -8,6 +9,7 @@ export default function Header() {
   const [loading, setLoading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
+  const { timeLeft, isManual } = useAutoDownloadSaves();
   const { settings, updateSettings, loading: loadingSettings } = useSettings();
 
   useEffect(() => {
@@ -38,6 +40,8 @@ export default function Header() {
     setDriveConnected(false);
   };
 
+  // Petite fonction utilitaire pour formater l'affichage de l'intervalle dans le badge
+
   return (
     <>
       <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
@@ -54,6 +58,18 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-3">
+          {!loadingSettings && driveConnected && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-300">
+              <RefreshCw
+                className={`w-3 h-3 text-indigo-400 ${!isManual ? "animate-spin-slow" : ""}`}
+              />
+              <span>
+                {isManual
+                  ? "Synchro manuelle"
+                  : `Prochaine synchro : ${timeLeft}`}
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -130,12 +146,12 @@ export default function Header() {
                       Fréquence de téléchargement des sauvegardes cloud
                     </label>
                     <select
-                      value={settings.downloadInterval ?? "manual"}
+                      value={settings.downloadInterval ?? "manually"}
                       onChange={(e) =>
                         updateSettings({
                           downloadInterval:
-                            e.target.value === "manual"
-                              ? null
+                            e.target.value === "manually"
+                              ? "manually"
                               : Number(e.target.value),
                         })
                       }
@@ -144,7 +160,7 @@ export default function Header() {
                       <option value="5">Toutes les 5 minutes</option>
                       <option value="15">Toutes les 15 minutes</option>
                       <option value="30">Toutes les 30 minutes</option>
-                      <option value="manual">Manuel uniquement</option>
+                      <option value="manually">Manuel uniquement</option>
                     </select>
                   </div>
 

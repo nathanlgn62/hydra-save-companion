@@ -10,6 +10,7 @@
     "tauri": "infisical run --env=dev -- tauri"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2.5.0",

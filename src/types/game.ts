@@ -7,4 +7,7 @@ export interface HydraGame {
   lastLocalSave?: string;
   lastRemoteSave?: string;
   savePath: string;
+  pathExists: boolean;
+  ludasaviPathExists: boolean;
+  localPathExists: boolean;
 }
