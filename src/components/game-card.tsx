@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { listen } from "@tauri-apps/api/event";
 import {
   AlertTriangle,
   Clock,
@@ -10,82 +9,38 @@ import {
   HardDrive,
   Loader2,
   RefreshCw,
-  Send,
-  X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useDownloadGame, useSyncGame } from "../hooks/useGames";
+import { useState } from "react";
+import {
+  useAutoUploadCountdown,
+  useDownloadSave,
+  useGameSyncStatus,
+  useUploadSave,
+} from "../hooks/useGames";
 import { useSettings } from "../hooks/useSettings";
 import { useIsGameDownloading } from "../stores/gameStore";
 import { HydraGame } from "../types/game";
+import { formatDate } from "../utils/date";
 import { openFolder } from "../utils/openFolder";
 import { getSyncBadgeConfig } from "../utils/syncBadge";
+import GameReportModal from "./game/game-report-modal";
 import SyncBadge from "./sync-badge";
 
 interface GameCardProps {
   game: HydraGame;
 }
 
-interface GameClosedPayload {
-  title: string;
-  save_path: string | null;
-}
-
-const parseSaveDate = (dateStr?: string | null): number | null => {
-  if (!dateStr || dateStr === "Jamais" || dateStr === "Aucune") return null;
-
-  // Format Rust "DD/MM/YYYY HH:mm"
-  const customFormatRegex = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/;
-  const match = dateStr.match(customFormatRegex);
-
-  if (match) {
-    const [, day, month, year, hours, minutes] = match;
-    return new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      Number(hours),
-      Number(minutes),
-    ).getTime();
-  }
-
-  // Fallback ISO
-  const parsed = new Date(dateStr).getTime();
-  return isNaN(parsed) ? null : parsed;
-};
-
-const formatDate = (dateStr?: string | null) => {
-  if (!dateStr) return "Jamais";
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
-    return new Intl.DateTimeFormat("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  } catch {
-    return dateStr;
-  }
-};
-
 export default function GameCard({ game }: GameCardProps) {
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [sentSuccess, setSentSuccess] = useState(false);
 
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const syncMutation = useSyncGame();
-  const downloadMutation = useDownloadGame();
+  const syncMutation = useUploadSave();
+  const downloadMutation = useDownloadSave();
   const queryClient = useQueryClient();
   const { settings } = useSettings();
-
-  const syncMutationRef = useRef(syncMutation);
-
+  const syncDirection = useGameSyncStatus(
+    game.lastLocalSave,
+    game.lastRemoteSave,
+  );
   const isAutoDownloading = useIsGameDownloading(game.title);
 
   const badgeConfig = getSyncBadgeConfig(
@@ -94,105 +49,12 @@ export default function GameCard({ game }: GameCardProps) {
     game.lastRemoteSave,
   );
 
-  // Détermination du sens de synchronisation
-  const syncDirection = useMemo(() => {
-    const localTime = parseSaveDate(game.lastLocalSave);
-    const remoteTime = parseSaveDate(game.lastRemoteSave);
-
-    if (!remoteTime && !localTime) return "none";
-    if (!localTime && remoteTime) return "down";
-    if (localTime && !remoteTime) return "up";
-
-    if (remoteTime! > localTime!) return "down";
-    if (localTime! > remoteTime!) return "up";
-    return "synced";
-  }, [game.lastLocalSave, game.lastRemoteSave]);
-
-  useEffect(() => {
-    let unlistenStartedFn: (() => void) | null = null;
-    let unlistenClosedFn: (() => void) | null = null;
-
-    const setupListeners = async () => {
-      unlistenStartedFn = await listen<string>("game-started", (event) => {
-        if (event.payload === game.title) {
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          setCountdown(null);
-        }
-      });
-
-      unlistenClosedFn = await listen<GameClosedPayload>(
-        "game-closed",
-        (event) => {
-          if (event.payload.title !== game.title || !game.savePath) {
-            return;
-          }
-
-          if (settings.uploadInterval === "afterGameClose") {
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-            }
-
-            setCountdown(45);
-
-            const intervalId = setInterval(() => {
-              setCountdown((prev) => {
-                if (prev === null || prev <= 1) {
-                  clearInterval(intervalId);
-                  timerRef.current = null;
-
-                  syncMutationRef.current.mutate({
-                    gameTitle: game.title,
-                    savePath: game.savePath!,
-                  });
-
-                  return null;
-                }
-                return prev - 1;
-              });
-            }, 1000);
-
-            timerRef.current = intervalId;
-          } else {
-            queryClient.invalidateQueries({ queryKey: ["games"] });
-          }
-        },
-      );
-    };
-
-    setupListeners();
-
-    return () => {
-      if (unlistenStartedFn) unlistenStartedFn();
-      if (unlistenClosedFn) unlistenClosedFn();
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [game.title, game.savePath, settings.uploadInterval, queryClient]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isReportOpen) {
-        handleCloseReport();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isReportOpen]);
-
-  useEffect(() => {
-    syncMutationRef.current = syncMutation;
-  }, [syncMutation]);
-
-  const handleCloseReport = () => {
-    setIsReportOpen(false);
-    setSentSuccess(false);
-    setMessage("");
-  };
+  const { countdown, clearCountdown } = useAutoUploadCountdown(
+    game.title,
+    game.savePath,
+    settings.uploadInterval,
+    queryClient,
+  );
 
   const handleSync = () => {
     if (
@@ -203,11 +65,7 @@ export default function GameCard({ game }: GameCardProps) {
       return;
     }
 
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-      setCountdown(null);
-    }
+    clearCountdown();
 
     const payload = { gameTitle: game.title, savePath: game.savePath };
 
@@ -225,35 +83,6 @@ export default function GameCard({ game }: GameCardProps) {
             typeof err === "string" ? err : err?.message || String(err),
           ),
       });
-    }
-  };
-
-  const handleSendReport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-
-    setIsSending(true);
-
-    try {
-      await fetch("TON_WEBHOOK_DISCORD_OU_API_ICI", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          game: game.title,
-          appId: game.objectId,
-          savePath: game.savePath,
-          message: message.trim(),
-        }),
-      });
-
-      setSentSuccess(true);
-      setTimeout(() => {
-        handleCloseReport();
-      }, 2000);
-    } catch (err) {
-      console.error("Erreur lors de l'envoi du report :", err);
-    } finally {
-      setIsSending(false);
     }
   };
 
@@ -373,97 +202,13 @@ export default function GameCard({ game }: GameCardProps) {
         </div>
       </div>
 
-      {/* Modal Report */}
-      {isReportOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn"
-          onClick={handleCloseReport}
-        >
-          <div
-            className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm text-slate-100">
-                    Signaler un problème
-                  </h3>
-                  <p className="text-xs text-slate-400">{game.title}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseReport}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {sentSuccess ? (
-              <div className="p-8 text-center flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg font-bold">
-                  ✓
-                </div>
-                <p className="text-sm font-medium text-slate-200">
-                  Message envoyé avec succès !
-                </p>
-                <p className="text-xs text-slate-400">
-                  Merci pour ton retour, le problème a bien été transmis.
-                </p>
-              </div>
-            ) : (
-              <form
-                onSubmit={handleSendReport}
-                className="p-5 flex flex-col gap-4"
-              >
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-slate-300">
-                    Décris le problème rencontré (ex: chemin de sauvegarde
-                    introuvable) :
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Explique ce qui ne va pas..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={handleCloseReport}
-                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSending || !message.trim()}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium flex items-center gap-2 shadow-sm shadow-indigo-900/30 transition-all"
-                  >
-                    {isSending ? (
-                      <>Envoi en cours...</>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        Envoyer le rapport
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      <GameReportModal
+        gameTitle={game.title}
+        gameObjectId={game.objectId}
+        savePath={game.savePath}
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+      />
     </>
   );
 }

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef, useState } from "react";
 import { HydraGame } from "../types/game";
 
 interface SaveInfoResponse {
@@ -12,6 +14,11 @@ interface SaveInfoResponse {
 interface SyncPayload {
   gameTitle: string;
   savePath: string;
+}
+
+interface GameClosedPayload {
+  title: string;
+  save_path: string | null;
 }
 
 // Fetch global de tous les jeux
@@ -87,7 +94,7 @@ export function useGames() {
 }
 
 // Mutation pour la synchronisation d'UN jeu
-export function useSyncGame() {
+export function useUploadSave() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -114,7 +121,7 @@ export function useSyncGame() {
   });
 }
 
-export function useDownloadGame() {
+export function useDownloadSave() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -136,4 +143,104 @@ export function useDownloadGame() {
       queryClient.invalidateQueries({ queryKey: ["games"] });
     },
   });
+}
+
+export function useAutoUploadCountdown(
+  gameTitle: string,
+  savePath: string | null,
+  uploadInterval: string,
+  queryClient: any,
+) {
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const syncMutation = useUploadSave();
+  const syncMutationRef = useRef(syncMutation);
+
+  useEffect(() => {
+    syncMutationRef.current = syncMutation;
+  }, [syncMutation]);
+
+  const clearCountdown = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setCountdown(null);
+  };
+
+  const startCountdown = (duration = 45) => {
+    clearCountdown();
+    if (!savePath) return;
+
+    setCountdown(duration);
+    timerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearCountdown();
+          syncMutationRef.current.mutate({ gameTitle, savePath });
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    let unlistenStarted: (() => void) | null = null;
+    let unlistenClosed: (() => void) | null = null;
+
+    const setup = async () => {
+      // Si le jeu démarre, on annule le compte à rebours en cours
+      unlistenStarted = await listen<string>("game-started", (event) => {
+        if (event.payload === gameTitle) {
+          clearCountdown();
+        }
+      });
+
+      // Si le jeu se ferme
+      unlistenClosed = await listen<GameClosedPayload>(
+        "game-closed",
+        (event) => {
+          if (event.payload.title !== gameTitle || !savePath) return;
+
+          if (uploadInterval === "afterGameClose") {
+            startCountdown(45);
+          } else {
+            queryClient.invalidateQueries({ queryKey: ["games"] });
+          }
+        },
+      );
+    };
+
+    setup();
+
+    return () => {
+      unlistenStarted?.();
+      unlistenClosed?.();
+      clearCountdown();
+    };
+  }, [gameTitle, savePath, uploadInterval, queryClient]);
+
+  return { countdown, clearCountdown };
+}
+
+import { useMemo } from "react";
+import { parseSaveDate } from "../utils/date";
+
+export function useGameSyncStatus(
+  lastLocalSave?: string | null,
+  lastRemoteSave?: string | null,
+) {
+  return useMemo(() => {
+    const localTime = parseSaveDate(lastLocalSave);
+    const remoteTime = parseSaveDate(lastRemoteSave);
+
+    if (!remoteTime && !localTime) return "none";
+    if (!localTime && remoteTime) return "down";
+    if (localTime && !remoteTime) return "up";
+
+    if (remoteTime! > localTime!) return "down";
+    if (localTime! > remoteTime!) return "up";
+    return "synced";
+  }, [lastLocalSave, lastRemoteSave]);
 }
