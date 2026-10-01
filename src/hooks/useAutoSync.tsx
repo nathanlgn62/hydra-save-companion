@@ -3,12 +3,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { setGameDownloading } from "../stores/gameStore";
 import { HydraGame } from "../types/game";
-import { useDownloadGame } from "./useGames";
+import { useDownloadSave } from "./useGames";
 import { useSettings } from "./useSettings";
 
 export function useAutoDownloadSaves() {
   const queryClient = useQueryClient();
-  const downloadMutation = useDownloadGame();
+  const downloadMutation = useDownloadSave();
   const { settings } = useSettings();
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
