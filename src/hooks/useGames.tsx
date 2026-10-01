@@ -21,7 +21,6 @@ export function useGames() {
     queryFn: async () => {
       const installedGames = await invoke<HydraGame[]>("get_installed_games");
       const storedToken = localStorage.getItem("gdrive_token");
-      const accessToken = storedToken ? storedToken.split("|")[0] : null;
 
       const gamesWithSaves = await Promise.all(
         installedGames.map(async (game) => {
@@ -35,11 +34,10 @@ export function useGames() {
             );
 
             let remoteDate = "Jamais";
-            // On vérifie le cloud si on a un token, même si le dossier local n'existe pas encore
-            if (accessToken) {
+            if (storedToken) {
               try {
                 const syncStatus = await invoke<any>("check_game_sync_status", {
-                  token: accessToken,
+                  token: storedToken, // <-- On passe le token complet
                   gameTitle: game.title,
                   savePath: saveInfo.resolvedPath ?? "",
                 });
@@ -102,10 +100,9 @@ export function useSyncGame() {
     }) => {
       const storedToken = localStorage.getItem("gdrive_token");
       if (!storedToken) throw new Error("Non connecté à Google Drive");
-      const accessToken = storedToken.split("|")[0];
 
       return await invoke<string>("upload_game_save_to_drive", {
-        token: accessToken,
+        token: storedToken,
         gameTitle,
         savePath,
       });
@@ -124,11 +121,10 @@ export function useDownloadGame() {
     mutationFn: async ({ gameTitle, savePath }: SyncPayload) => {
       const storedToken = localStorage.getItem("gdrive_token");
       if (!storedToken) throw new Error("Non connecté à Google Drive");
-      const accessToken = storedToken.split("|")[0];
 
       // Appel de la commande Rust Tauri 'download_game_save'
       const response = await invoke<string>("download_game_save_from_drive", {
-        token: accessToken,
+        token: storedToken,
         gameTitle,
         savePath,
       });

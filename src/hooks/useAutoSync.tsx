@@ -52,14 +52,12 @@ export function useAutoDownloadSaves() {
         const storedToken = localStorage.getItem("gdrive_token");
         if (!storedToken) return;
 
-        const accessToken = storedToken.split("|")[0];
-
         for (const game of games) {
           if (!game.savePath || !game.localPathExists) continue;
 
           try {
             const syncStatus = await invoke<any>("check_game_sync_status", {
-              token: accessToken,
+              token: storedToken,
               gameTitle: game.title,
               savePath: game.savePath,
             });
