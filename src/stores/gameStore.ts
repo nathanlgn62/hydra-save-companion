@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 
 type SyncStatusListener = (activeGames: Record<string, boolean>) => void;
+type RunningGameListener = (gameName: string | null) => void;
 
 let activeDownloads: Record<string, boolean> = {};
-const listeners = new Set<SyncStatusListener>();
+let runningGame: string | null = null;
+
+const syncListeners = new Set<SyncStatusListener>();
+const runningListeners = new Set<RunningGameListener>();
 
 export const setGameDownloading = (
   gameTitle: string,
@@ -16,17 +20,32 @@ export const setGameDownloading = (
     delete copy[gameTitle];
     activeDownloads = copy;
   }
-  listeners.forEach((listener) => listener(activeDownloads));
+  syncListeners.forEach((listener) => listener(activeDownloads));
 };
 
 export const subscribeToSyncStatus = (listener: SyncStatusListener) => {
-  listeners.add(listener);
+  syncListeners.add(listener);
   return () => {
-    listeners.delete(listener);
+    syncListeners.delete(listener);
   };
 };
 
 export const getActiveDownloads = () => activeDownloads;
+
+// Gestion du jeu en cours d'exécution
+export const setRunningGame = (gameName: string | null) => {
+  runningGame = gameName;
+  runningListeners.forEach((listener) => listener(runningGame));
+};
+
+export const subscribeToRunningGame = (listener: RunningGameListener) => {
+  runningListeners.add(listener);
+  return () => {
+    runningListeners.delete(listener);
+  };
+};
+
+export const getRunningGame = () => runningGame;
 
 export function useIsGameDownloading(gameTitle: string) {
   const [isDownloading, setIsDownloading] = useState(
@@ -40,4 +59,18 @@ export function useIsGameDownloading(gameTitle: string) {
   }, [gameTitle]);
 
   return isDownloading;
+}
+
+export function useRunningGame() {
+  const [currentRunningGame, setCurrentRunningGame] = useState<string | null>(
+    getRunningGame(),
+  );
+
+  useEffect(() => {
+    return subscribeToRunningGame((gameName) => {
+      setCurrentRunningGame(gameName);
+    });
+  }, []);
+
+  return currentRunningGame;
 }

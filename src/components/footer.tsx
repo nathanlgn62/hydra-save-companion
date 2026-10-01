@@ -1,26 +1,7 @@
-import { listen } from "@tauri-apps/api/event";
-import { useEffect, useState } from "react";
+import { getRunningGame } from "../stores/gameStore";
 
 export default function Footer() {
-  const [runningGame, setRunningGame] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Écoute quand un jeu démarre
-    const unlistenStarted = listen<string>("game-started", (event) => {
-      setRunningGame(event.payload);
-    });
-
-    // Écoute quand le jeu se ferme
-    const unlistenClosed = listen<string>("game-closed", () => {
-      setRunningGame(null);
-    });
-
-    // Nettoyage des listeners au démontage
-    return () => {
-      unlistenStarted.then((unlisten) => unlisten());
-      unlistenClosed.then((unlisten) => unlisten());
-    };
-  }, []);
+  const runningGame = getRunningGame();
 
   return (
     <footer className="h-8 bg-slate-950 border-t border-slate-800/80 px-3 flex items-center justify-between text-[11px] text-slate-500 shrink-0 select-none">
