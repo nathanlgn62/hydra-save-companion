@@ -2,6 +2,7 @@ import AlertBanner from "./components/banner/alert-banner";
 import Footer from "./components/footer";
 import GameCard from "./components/game-card";
 import Header from "./components/header";
+import ToastContainer from "./components/toast/toast-container";
 import { useAutoDownloadSaves } from "./hooks/useAutoSync";
 import { useGames } from "./hooks/useGames";
 import { useSettings } from "./hooks/useSettings";
@@ -66,6 +67,8 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <ToastContainer />
 
       <Footer />
     </div>

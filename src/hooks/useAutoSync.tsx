@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { setGameDownloading } from "../stores/gameStore";
+import { useToasts } from "../stores/toastStore";
 import { HydraGame } from "../types/game";
 import { useDownloadSave } from "./useGames";
 import { useSettings } from "./useSettings";
@@ -11,6 +12,7 @@ export function useAutoDownloadSaves() {
   const downloadMutation = useDownloadSave();
   const { settings } = useSettings();
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const { showToast } = useToasts();
 
   const intervalSetting = settings.downloadInterval;
   const isEnabled =
@@ -47,7 +49,12 @@ export function useAutoDownloadSaves() {
           "games",
         ]);
 
-        if (!games || games.length === 0) return;
+        if (!games || games.length === 0)
+          return showToast(
+            "Aucun jeu trouvé pour la synchronisation.",
+            "info",
+            3000,
+          );
 
         const storedToken = localStorage.getItem("gdrive_token");
         if (!storedToken) return;
@@ -64,6 +71,11 @@ export function useAutoDownloadSaves() {
 
             if (syncStatus.status === "CloudNewer") {
               console.log(`[AutoSync] Téléchargement pour ${game.title}`);
+              showToast(
+                `Téléchargement de la sauvegarde pour ${game.title}...`,
+                "info",
+                3000,
+              );
 
               // Active l'état de chargement sur la GameCard correspondante
               setGameDownloading(game.title, true);
@@ -78,10 +90,20 @@ export function useAutoDownloadSaves() {
               }
             }
           } catch (err) {
+            showToast(
+              `Erreur lors de la synchronisation pour ${game.title}.`,
+              "error",
+              5000,
+            );
             console.error(`[AutoSync] Erreur pour ${game.title}:`, err);
           }
         }
       } catch (err) {
+        showToast(
+          "Erreur générale lors de la synchronisation automatique.",
+          "error",
+          5000,
+        );
         console.error("[AutoSync] Erreur générale :", err);
       }
     }, totalSeconds * 1000);

@@ -97,6 +97,8 @@ export function useGames() {
 export function useUploadSave() {
   const queryClient = useQueryClient();
 
+  const { showToast } = useToasts();
+
   return useMutation({
     mutationFn: async ({
       gameTitle,
@@ -106,7 +108,8 @@ export function useUploadSave() {
       savePath: string;
     }) => {
       const storedToken = localStorage.getItem("gdrive_token");
-      if (!storedToken) throw new Error("Non connecté à Google Drive");
+      if (!storedToken)
+        return showToast("Non connecté à Google Drive", "error");
 
       return await invoke<string>("upload_game_save_to_drive", {
         token: storedToken,
@@ -123,11 +126,13 @@ export function useUploadSave() {
 
 export function useDownloadSave() {
   const queryClient = useQueryClient();
+  const { showToast } = useToasts();
 
   return useMutation({
     mutationFn: async ({ gameTitle, savePath }: SyncPayload) => {
       const storedToken = localStorage.getItem("gdrive_token");
-      if (!storedToken) throw new Error("Non connecté à Google Drive");
+      if (!storedToken)
+        return showToast("Non connecté à Google Drive", "error");
 
       // Appel de la commande Rust Tauri 'download_game_save'
       const response = await invoke<string>("download_game_save_from_drive", {
@@ -155,6 +160,7 @@ export function useAutoUploadCountdown(
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncMutation = useUploadSave();
   const syncMutationRef = useRef(syncMutation);
+  const { showToast } = useToasts();
 
   useEffect(() => {
     syncMutationRef.current = syncMutation;
@@ -205,6 +211,10 @@ export function useAutoUploadCountdown(
 
           if (uploadInterval === "afterGameClose") {
             startCountdown(45);
+            showToast(
+              `Le jeu "${gameTitle}" a été fermé. La sauvegarde sera synchronisée dans 45 secondes.`,
+              "info",
+            );
           } else {
             queryClient.invalidateQueries({ queryKey: ["games"] });
           }
@@ -225,6 +235,7 @@ export function useAutoUploadCountdown(
 }
 
 import { useMemo } from "react";
+import { useToasts } from "../stores/toastStore";
 import { parseSaveDate } from "../utils/date";
 
 export function useGameSyncStatus(

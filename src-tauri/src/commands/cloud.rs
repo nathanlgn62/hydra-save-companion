@@ -12,10 +12,10 @@ use crate::funcs::hydra::get_latest_modified_time;
 
 #[tauri::command]
 pub async fn login_google() -> Result<String, String> {
-    let client_id = std::env::var("HSC-GC-ID")
+    let client_id = std::env::var("HSC_GC_ID")
         .map_err(|_| "La variable GOOGLE_CLIENT_ID est manquante".to_string())?;
 
-    let client_secret = std::env::var("HSC-GS")
+    let client_secret = std::env::var("HSC_GS")
         .map_err(|_| "La variable GOOGLE_CLIENT_SECRET est manquante".to_string())?;
 
     let (tx, rx) = tokio::sync::oneshot::channel();

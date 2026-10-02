@@ -17,7 +17,7 @@ export default function Footer() {
         ) : (
           <>
             <span className="w-2 h-2 rounded-full bg-slate-600" />
-            <span>En attente d'un jeu</span>
+            <span>Aucun jeu en cours</span>
           </>
         )}
       </div>
