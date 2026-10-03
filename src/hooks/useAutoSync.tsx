@@ -5,7 +5,7 @@ import { setGameDownloading } from "../stores/gameStore";
 import { useToasts } from "../stores/toastStore";
 import { HydraGame } from "../types/game";
 import { useDesktopNotification } from "./useDesktopNotification";
-import { useDownloadSave } from "./useGames";
+import { useDownloadSave, useGames } from "./useGames";
 import { useSettings } from "./useSettings";
 
 export function useAutoDownloadSaves() {
@@ -15,6 +15,7 @@ export function useAutoDownloadSaves() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const { showToast } = useToasts();
   const { desktopNotification } = useDesktopNotification();
+  const { data: games } = useGames();
 
   const intervalSetting = settings.downloadInterval;
   const isEnabled =
@@ -34,7 +35,12 @@ export function useAutoDownloadSaves() {
   const isSyncingRef = useRef(false);
 
   useEffect(() => {
-    if (!isEnabled || typeof intervalSetting !== "number") {
+    if (
+      !isEnabled ||
+      typeof intervalSetting !== "number" ||
+      !games ||
+      games.length === 0
+    ) {
       setTimeLeft(null);
       return;
     }

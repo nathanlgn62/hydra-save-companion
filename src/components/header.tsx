@@ -1,6 +1,7 @@
 import { Cloud, CloudOff, History, RefreshCw, Settings } from "lucide-react";
 import { useState } from "react";
 import { useAutoDownloadSaves } from "../hooks/useAutoSync";
+import { useGames } from "../hooks/useGames";
 import { useSettings } from "../hooks/useSettings";
 import { useCloudStatus } from "../stores/cloudStore";
 import SettingsModal from "./setting/setting-modal";
@@ -15,6 +16,8 @@ export default function Header() {
   const { settings, updateSettings, loading: loadingSettings } = useSettings();
   const { isDriveConnected, loginGoogle, disconnectGoogle } = useCloudStatus();
 
+  const { data: games } = useGames();
+
   return (
     <>
       <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
@@ -25,25 +28,28 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-3">
-          {!loadingSettings && isDriveConnected && (
-            <div className="group relative hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-300 cursor-default">
-              <RefreshCw
-                className={`w-3 h-3 text-indigo-400 ${!isManual ? "animate-spin-slow" : ""}`}
-              />
-              <span>
-                {isManual
-                  ? "Téléchargement manuel"
-                  : `Téléchargement depuis le cloud dans : ${timeLeft}`}
-              </span>
+          {!loadingSettings &&
+            isDriveConnected &&
+            games &&
+            games.length > 0 && (
+              <div className="group relative hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-300 cursor-default">
+                <RefreshCw
+                  className={`w-3 h-3 text-indigo-400 ${!isManual ? "animate-spin-slow" : ""}`}
+                />
+                <span>
+                  {isManual
+                    ? "Téléchargement manuel"
+                    : `Téléchargement depuis le cloud dans : ${timeLeft}`}
+                </span>
 
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden group-hover:block w-66 p-2 bg-slate-950 text-slate-200 text-xs rounded-md shadow-xl border border-slate-800 text-center z-50 pointer-events-none">
-                {isManual
-                  ? "Les sauvegardes sont synchronisées manuellement."
-                  : "Téléchargement automatique des sauvegardes activé. La prochaine synchronisation aura lieu dans le temps indiqué."}
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950"></div>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden group-hover:block w-66 p-2 bg-slate-950 text-slate-200 text-xs rounded-md shadow-xl border border-slate-800 text-center z-50 pointer-events-none">
+                  {isManual
+                    ? "Les sauvegardes sont synchronisées manuellement."
+                    : "Téléchargement automatique des sauvegardes activé. La prochaine synchronisation aura lieu dans le temps indiqué."}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950"></div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <button
             type="button"
