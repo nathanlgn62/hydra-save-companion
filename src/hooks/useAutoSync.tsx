@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { setGameDownloading } from "../stores/gameStore";
 import { useToasts } from "../stores/toastStore";
 import { HydraGame } from "../types/game";
+import { useDesktopNotification } from "./useDesktopNotification";
 import { useDownloadSave } from "./useGames";
 import { useSettings } from "./useSettings";
 
@@ -13,16 +14,24 @@ export function useAutoDownloadSaves() {
   const { settings } = useSettings();
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const { showToast } = useToasts();
+  const { desktopNotification } = useDesktopNotification();
 
   const intervalSetting = settings.downloadInterval;
   const isEnabled =
     intervalSetting !== "manually" && typeof intervalSetting === "number";
 
+  // Références pour éviter les closures périmées sans redéclencher l'effet
   const downloadMutationRef = useRef(downloadMutation);
   downloadMutationRef.current = downloadMutation;
 
   const queryClientRef = useRef(queryClient);
   queryClientRef.current = queryClient;
+
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+
+  // Verrou pour empêcher les lancements simultanés si une synchro prend du temps
+  const isSyncingRef = useRef(false);
 
   useEffect(() => {
     if (!isEnabled || typeof intervalSetting !== "number") {
@@ -41,6 +50,15 @@ export function useAutoDownloadSaves() {
     }, 1000);
 
     const syncTimer = setInterval(async () => {
+      // Si une synchro est déjà en cours, on ignore cette itération
+      if (isSyncingRef.current) {
+        console.log(
+          "[AutoSync] Une synchronisation est déjà en cours, ignorée.",
+        );
+        return;
+      }
+
+      isSyncingRef.current = true;
       console.log("Lancement de l'autoSync..");
       setTimeLeft(totalSeconds);
 
@@ -49,12 +67,20 @@ export function useAutoDownloadSaves() {
           "games",
         ]);
 
-        if (!games || games.length === 0)
-          return showToast(
+        if (!games || games.length === 0) {
+          showToastRef.current(
             "Aucun jeu trouvé pour la synchronisation.",
             "info",
             3000,
           );
+
+          await desktopNotification(
+            "Synchronisation automatique",
+            "Aucun jeu trouvé pour la synchronisation.",
+          );
+
+          return;
+        }
 
         const storedToken = localStorage.getItem("gdrive_token");
         if (!storedToken) return;
@@ -71,13 +97,15 @@ export function useAutoDownloadSaves() {
 
             if (syncStatus.status === "CloudNewer") {
               console.log(`[AutoSync] Téléchargement pour ${game.title}`);
-              showToast(
+              showToastRef.current(
                 `Téléchargement de la sauvegarde pour ${game.title}...`,
                 "info",
                 3000,
               );
-
-              // Active l'état de chargement sur la GameCard correspondante
+              await desktopNotification(
+                "Synchronisation automatique",
+                `Téléchargement de la sauvegarde pour ${game.title}...`,
+              );
               setGameDownloading(game.title, true);
               try {
                 await downloadMutationRef.current.mutateAsync({
@@ -85,26 +113,36 @@ export function useAutoDownloadSaves() {
                   savePath: game.savePath,
                 });
               } finally {
-                // Désactive l'état de chargement quoiqu'il arrive
                 setGameDownloading(game.title, false);
               }
             }
           } catch (err) {
-            showToast(
+            showToastRef.current(
               `Erreur lors de la synchronisation pour ${game.title}.`,
               "error",
               5000,
+            );
+            desktopNotification(
+              "Synchronisation automatique",
+              `Erreur lors de la synchronisation pour ${game.title}.`,
             );
             console.error(`[AutoSync] Erreur pour ${game.title}:`, err);
           }
         }
       } catch (err) {
-        showToast(
+        showToastRef.current(
           "Erreur générale lors de la synchronisation automatique.",
           "error",
           5000,
         );
+        desktopNotification(
+          "Synchronisation automatique",
+          "Erreur générale lors de la synchronisation automatique.",
+        );
         console.error("[AutoSync] Erreur générale :", err);
+      } finally {
+        // Libération du verrou une fois terminé
+        isSyncingRef.current = false;
       }
     }, totalSeconds * 1000);
 

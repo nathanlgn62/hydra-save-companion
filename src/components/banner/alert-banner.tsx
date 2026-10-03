@@ -18,7 +18,7 @@ export default function AlertBanner() {
         <span className="font-semibold block mb-0.5 text-red-300">
           Jeux non pris en charge
         </span>
-        Seuls les jeux installés ou ajoutés via Hydra Launcher sont affichés.
+        Seuls les jeux présents dans Hydra Launcher et installés sont affichés.
         Les jeux importés des boutiques officielles disposent déjà de leur
         propre sauvegarde cloud.
       </div>

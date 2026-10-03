@@ -3,7 +3,6 @@ import Footer from "./components/footer";
 import GameCard from "./components/game-card";
 import Header from "./components/header";
 import ToastContainer from "./components/toast/toast-container";
-import { useAutoDownloadSaves } from "./hooks/useAutoSync";
 import { useGames } from "./hooks/useGames";
 import { useSettings } from "./hooks/useSettings";
 import { useWatcher } from "./hooks/useWatcher";
@@ -12,7 +11,6 @@ export default function App() {
   const { data: games = [], isLoading } = useGames();
 
   useSettings();
-  useAutoDownloadSaves();
   useWatcher();
 
   return (

@@ -98,6 +98,7 @@ export function useUploadSave() {
   const queryClient = useQueryClient();
 
   const { showToast } = useToasts();
+  const { desktopNotification } = useDesktopNotification();
 
   return useMutation({
     mutationFn: async ({
@@ -108,8 +109,14 @@ export function useUploadSave() {
       savePath: string;
     }) => {
       const storedToken = localStorage.getItem("gdrive_token");
-      if (!storedToken)
-        return showToast("Non connecté à Google Drive", "error");
+      if (!storedToken) {
+        showToast("Non connecté à Google Drive", "error");
+        desktopNotification(
+          "Synchronisation automatique",
+          "Non connecté à Google Drive",
+        );
+        return;
+      }
 
       return await invoke<string>("upload_game_save_to_drive", {
         token: storedToken,
@@ -127,12 +134,19 @@ export function useUploadSave() {
 export function useDownloadSave() {
   const queryClient = useQueryClient();
   const { showToast } = useToasts();
+  const { desktopNotification } = useDesktopNotification();
 
   return useMutation({
     mutationFn: async ({ gameTitle, savePath }: SyncPayload) => {
       const storedToken = localStorage.getItem("gdrive_token");
-      if (!storedToken)
-        return showToast("Non connecté à Google Drive", "error");
+      if (!storedToken) {
+        showToast("Non connecté à Google Drive", "error");
+        await desktopNotification(
+          "Synchronisation automatique",
+          "Non connecté à Google Drive",
+        );
+        return;
+      }
 
       // Appel de la commande Rust Tauri 'download_game_save'
       const response = await invoke<string>("download_game_save_from_drive", {
@@ -161,6 +175,7 @@ export function useAutoUploadCountdown(
   const syncMutation = useUploadSave();
   const syncMutationRef = useRef(syncMutation);
   const { showToast } = useToasts();
+  const { desktopNotification } = useDesktopNotification();
 
   useEffect(() => {
     syncMutationRef.current = syncMutation;
@@ -215,6 +230,10 @@ export function useAutoUploadCountdown(
               `Le jeu "${gameTitle}" a été fermé. La sauvegarde sera synchronisée dans 45 secondes.`,
               "info",
             );
+            desktopNotification(
+              "Synchronisation automatique",
+              `Le jeu "${gameTitle}" a été fermé. La sauvegarde sera synchronisée dans 45 secondes.`,
+            );
           } else {
             queryClient.invalidateQueries({ queryKey: ["games"] });
           }
@@ -237,6 +256,7 @@ export function useAutoUploadCountdown(
 import { useMemo } from "react";
 import { useToasts } from "../stores/toastStore";
 import { parseSaveDate } from "../utils/date";
+import { useDesktopNotification } from "./useDesktopNotification";
 
 export function useGameSyncStatus(
   lastLocalSave?: string | null,
