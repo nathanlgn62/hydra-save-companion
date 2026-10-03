@@ -4,10 +4,12 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import { useCallback } from "react";
+import { useTauriWindowFocus } from "./useAppIsFocused";
 import { useSettings } from "./useSettings";
 
 export function useDesktopNotification() {
   const { settings } = useSettings();
+  const isFocused = useTauriWindowFocus();
 
   const desktopNotification = useCallback(
     async (title: string, body: string) => {
@@ -19,7 +21,11 @@ export function useDesktopNotification() {
           permissionGranted = permission === "granted";
         }
 
-        if (permissionGranted && settings.desktopNotificationsEnabled) {
+        if (
+          permissionGranted &&
+          settings.desktopNotificationsEnabled &&
+          !isFocused
+        ) {
           sendNotification({ title, body });
         }
       } catch (error) {
