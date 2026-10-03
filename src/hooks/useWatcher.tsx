@@ -1,32 +1,114 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setRunningGame } from "../stores/gameStore";
 import { useToasts } from "../stores/toastStore";
+import { HydraGame } from "../types/game";
 import { useDesktopNotification } from "./useDesktopNotification";
+import { useUploadSave } from "./useGames";
+import { useSettings } from "./useSettings";
+
+interface GameClosedPayload {
+  title: string;
+  savePath?: string;
+}
 
 export function useWatcher() {
+  const queryClient = useQueryClient();
   const { showToast } = useToasts();
   const { desktopNotification } = useDesktopNotification();
+  const { settings } = useSettings();
+  const uploadMutation = useUploadSave();
+
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const uploadMutationRef = useRef(uploadMutation);
+  uploadMutationRef.current = uploadMutation;
+
+  const clearCountdown = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setCountdown(null);
+  };
+
+  const startCountdown = (
+    gameTitle: string,
+    savePath: string,
+    duration = 45,
+  ) => {
+    clearCountdown();
+    setCountdown(duration);
+
+    timerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearCountdown();
+          uploadMutationRef.current.mutate({ gameTitle, savePath });
+          showToast(
+            `Synchronisation automatique de "${gameTitle}" en cours...`,
+            "info",
+          );
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
-    // Écoute quand un jeu démarre
-    const unlistenStarted = listen<string>("game-started", (event) => {
-      setRunningGame(event.payload);
-      showToast(`Le jeu "${event.payload}" a démarré.`, "info");
-      desktopNotification(`${event.payload}`, `Le jeu a démarré.`);
-    });
+    let unlistenStarted: (() => void) | null = null;
+    let unlistenClosed: (() => void) | null = null;
 
-    // Écoute quand le jeu se ferme
-    const unlistenClosed = listen<string>("game-closed", () => {
-      setRunningGame(null);
-      showToast("Le jeu a été fermé.", "info");
-      desktopNotification(`Le jeu a été fermé.`, `Le jeu a été fermé.`);
-    });
+    const setup = async () => {
+      unlistenStarted = await listen<string>("game-started", (event) => {
+        const gameTitle = event.payload;
+        setRunningGame(gameTitle);
+        clearCountdown();
+        showToast(`Le jeu "${gameTitle}" a démarré.`, "info");
+        desktopNotification(`${gameTitle}`, `Le jeu a démarré.`);
+      });
 
-    // Nettoyage des listeners au démontage
-    return () => {
-      unlistenStarted.then((unlisten) => unlisten());
-      unlistenClosed.then((unlisten) => unlisten());
+      unlistenClosed = await listen<GameClosedPayload>(
+        "game-closed",
+        async (event) => {
+          const gameTitle = event.payload.title;
+          setRunningGame(null);
+
+          await queryClient.refetchQueries({ queryKey: ["games"] });
+
+          const games = queryClient.getQueryData<HydraGame[]>(["games"]);
+          const matchedGame = games?.find((g) => g.title === gameTitle);
+          const savePath = matchedGame?.savePath || event.payload.savePath;
+
+          if (settings.uploadInterval === "afterGameClose" && savePath) {
+            startCountdown(gameTitle, savePath, 45);
+            showToast(
+              `Le jeu "${gameTitle}" a été fermé. La sauvegarde sera synchronisée dans 45 secondes.`,
+              "info",
+            );
+            desktopNotification(
+              `${gameTitle}`,
+              `La sauvegarde sera synchronisée dans 45 secondes.`,
+            );
+          } else {
+            showToast(`Le jeu "${gameTitle}" a été fermé.`, "info");
+            desktopNotification(`${gameTitle}`, `Le jeu a été fermé.`);
+          }
+        },
+      );
     };
-  }, []);
+
+    setup();
+
+    return () => {
+      unlistenStarted?.();
+      unlistenClosed?.();
+      clearCountdown();
+    };
+  }, [settings.uploadInterval, queryClient, showToast, desktopNotification]);
+
+  return { countdown, clearCountdown };
 }

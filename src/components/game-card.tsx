@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Clock,
@@ -12,12 +11,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import {
-  useAutoUploadCountdown,
   useDownloadSave,
   useGameSyncStatus,
   useUploadSave,
 } from "../hooks/useGames";
-import { useSettings } from "../hooks/useSettings";
 import { useIsGameDownloading } from "../stores/gameStore";
 import { HydraGame } from "../types/game";
 import { formatDate } from "../utils/date";
@@ -35,8 +32,6 @@ export default function GameCard({ game }: GameCardProps) {
 
   const syncMutation = useUploadSave();
   const downloadMutation = useDownloadSave();
-  const queryClient = useQueryClient();
-  const { settings } = useSettings();
   const syncDirection = useGameSyncStatus(
     game.lastLocalSave,
     game.lastRemoteSave,
@@ -49,12 +44,8 @@ export default function GameCard({ game }: GameCardProps) {
     game.lastRemoteSave,
   );
 
-  const { countdown, clearCountdown } = useAutoUploadCountdown(
-    game.title,
-    game.savePath,
-    settings.uploadInterval,
-    queryClient,
-  );
+  const countdown = null;
+  const clearCountdown = () => {};
 
   const handleSync = () => {
     if (
