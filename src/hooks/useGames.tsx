@@ -111,6 +111,15 @@ export function useUploadSave() {
         return;
       }
 
+      showToast(
+        `Upload automatique de la sauvegarde de "${gameTitle}" en cours...`,
+        "info",
+      );
+      desktopNotification(
+        `${gameTitle}`,
+        `Upload automatique de la sauvegarde en cours...`,
+      );
+
       return await invoke<string>("upload_game_save_to_drive", {
         token: storedToken,
         gameTitle,
@@ -118,8 +127,19 @@ export function useUploadSave() {
       });
     },
     onSuccess: () => {
-      // Invalide le cache des jeux -> déclenche un re-fetch silencieux en arrière-plan
-      queryClient.invalidateQueries({ queryKey: ["games"] });
+      desktopNotification(
+        "Synchronisation automatique",
+        "Upload de la sauvegarde terminé.",
+      );
+      showToast("Upload de la sauvegarde terminé.", "success");
+      queryClient.refetchQueries({ queryKey: ["games"] });
+    },
+    onError: () => {
+      desktopNotification(
+        "Synchronisation automatique",
+        `Erreur lors de l'upload de la sauvegarde`,
+      );
+      showToast("Erreur lors de l'upload de la sauvegarde", "error");
     },
   });
 }

@@ -47,10 +47,6 @@ export function useWatcher() {
         if (prev === null || prev <= 1) {
           clearCountdown();
           uploadMutationRef.current.mutate({ gameTitle, savePath });
-          showToast(
-            `Synchronisation automatique de "${gameTitle}" en cours...`,
-            "info",
-          );
           return null;
         }
         return prev - 1;
