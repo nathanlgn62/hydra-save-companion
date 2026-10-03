@@ -5,12 +5,14 @@ export interface UserSettings {
   uploadInterval: "afterGameClose" | "manually";
   downloadInterval: number | "manually";
   autoStartWithSystem: boolean;
+  desktopNotificationsEnabled?: boolean;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   uploadInterval: "afterGameClose",
   downloadInterval: 5,
   autoStartWithSystem: true,
+  desktopNotificationsEnabled: true,
 };
 
 let storeInstance: Store | null = null;

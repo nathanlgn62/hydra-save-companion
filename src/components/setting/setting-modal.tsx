@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import Toggle from "../UI/toggle";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -83,26 +84,27 @@ export default function SettingsModal({
                 </select>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <div>
-                  <span className="text-sm font-medium text-slate-200 block">
-                    Démarrage automatique
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Lancer l'application avec le système
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.autoStartWithSystem}
-                  onChange={(e) =>
-                    updateSettings({
-                      autoStartWithSystem: e.target.checked,
-                    })
-                  }
-                  className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
-                />
-              </div>
+              <Toggle
+                label="Démarrage automatique"
+                description="Lancer l'application avec le système"
+                checked={settings.autoStartWithSystem}
+                onChange={(checked) =>
+                  updateSettings({
+                    autoStartWithSystem: checked,
+                  })
+                }
+              />
+
+              <Toggle
+                label="Notifications de bureau"
+                description="Afficher les notifications système Tauri"
+                checked={settings.desktopNotifications ?? true}
+                onChange={(checked) =>
+                  updateSettings({
+                    desktopNotifications: checked,
+                  })
+                }
+              />
             </>
           )}
         </div>

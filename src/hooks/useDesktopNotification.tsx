@@ -4,8 +4,11 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import { useCallback } from "react";
+import { useSettings } from "./useSettings";
 
 export function useDesktopNotification() {
+  const { settings } = useSettings();
+
   const desktopNotification = useCallback(
     async (title: string, body: string) => {
       try {
@@ -16,7 +19,7 @@ export function useDesktopNotification() {
           permissionGranted = permission === "granted";
         }
 
-        if (permissionGranted) {
+        if (permissionGranted && settings.desktopNotificationsEnabled) {
           sendNotification({ title, body });
         }
       } catch (error) {
