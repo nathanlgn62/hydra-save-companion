@@ -35,7 +35,7 @@ export function useDesktopNotification() {
         );
       }
     },
-    [],
+    [isFocused, settings.desktopNotificationsEnabled],
   );
 
   return { desktopNotification };

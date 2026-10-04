@@ -3,7 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { setRunningGame } from "../stores/gameStore";
 import { useToasts } from "../stores/toastStore";
-import { HydraGame } from "../types/game";
 import { useDesktopNotification } from "./useDesktopNotification";
 import { useUploadSave } from "./useGames";
 import { useSettings } from "./useSettings";
@@ -22,6 +21,11 @@ export function useWatcher() {
 
   const [countdown, setCountdown] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const lastEventRef = useRef<{ type: string; time: number }>({
+    type: "",
+    time: 0,
+  });
 
   const uploadMutationRef = useRef(uploadMutation);
   uploadMutationRef.current = uploadMutation;
@@ -61,6 +65,16 @@ export function useWatcher() {
     const setup = async () => {
       unlistenStarted = await listen<string>("game-started", (event) => {
         const gameTitle = event.payload;
+
+        const now = Date.now();
+        if (
+          lastEventRef.current.type === `started-${gameTitle}` &&
+          now - lastEventRef.current.time < 1000
+        ) {
+          return;
+        }
+        lastEventRef.current = { type: `started-${gameTitle}`, time: now };
+
         setRunningGame(gameTitle);
         clearCountdown();
         showToast(`Le jeu "${gameTitle}" a démarré.`, "info");
@@ -71,16 +85,24 @@ export function useWatcher() {
         "game-closed",
         async (event) => {
           const gameTitle = event.payload.title;
+
+          const now = Date.now();
+          if (
+            lastEventRef.current.type === `closed-${gameTitle}` &&
+            now - lastEventRef.current.time < 1000
+          ) {
+            return;
+          }
+          lastEventRef.current = { type: `closed-${gameTitle}`, time: now };
+
           setRunningGame(null);
 
-          await queryClient.refetchQueries({ queryKey: ["games"] });
-
-          const games = queryClient.getQueryData<HydraGame[]>(["games"]);
-          const matchedGame = games?.find((g) => g.title === gameTitle);
-          const savePath = matchedGame?.savePath || event.payload.savePath;
-
-          if (settings.uploadInterval === "afterGameClose" && savePath) {
-            startCountdown(gameTitle, savePath, 45);
+          // 1. On affiche immédiatement le toast et la notif de fermeture
+          if (
+            settings.uploadInterval === "afterGameClose" &&
+            event.payload.savePath
+          ) {
+            startCountdown(gameTitle, event.payload.savePath, 45);
             showToast(
               `Le jeu "${gameTitle}" a été fermé. La sauvegarde sera synchronisée dans 45 secondes.`,
               "info",
@@ -93,6 +115,9 @@ export function useWatcher() {
             showToast(`Le jeu "${gameTitle}" a été fermé.`, "info");
             desktopNotification(`${gameTitle}`, `Le jeu a été fermé.`);
           }
+
+          // 2. On rafraîchit les requêtes en arrière-plan sans bloquer l'UI
+          queryClient.invalidateQueries({ queryKey: ["games"] });
         },
       );
     };
