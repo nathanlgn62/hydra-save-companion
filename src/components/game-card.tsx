@@ -90,17 +90,29 @@ export default function GameCard({ game }: GameCardProps) {
     <>
       <div className="w-[calc(33.333%-11px)] bg-slate-900/90 border border-slate-800/80 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 flex flex-col group">
         <div className="relative w-full aspect-[2/2] bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col items-center justify-center p-4 text-center border-b border-slate-800/60 overflow-hidden">
+          {game.cover && (
+            <>
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-30 group-hover:opacity-40 group-hover:scale-105 transition-all duration-500"
+                style={{ backgroundImage: `url(${game.cover})` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/30" />
+            </>
+          )}
+
           <div className="absolute top-3 right-3 z-20">
             <SyncBadge config={badgeConfig} />
           </div>
 
-          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-40 pointer-events-none" />
+          {!game.cover && (
+            <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-40 pointer-events-none" />
+          )}
 
           <div className="relative z-10 flex flex-col items-center gap-3 group-hover:scale-105 transition-transform duration-300">
             <div className="w-12 h-12 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-slate-400 group-hover:border-indigo-500/50 group-hover:text-indigo-400 shadow-inner transition-colors">
               <Gamepad size={24} />
             </div>
-            <span className="text-xs font-medium text-slate-300 line-clamp-2 leading-snug px-2">
+            <span className="text-xs font-medium text-slate-300 line-clamp-2 leading-snug px-2 drop-shadow-md">
               {game.title}
             </span>
           </div>
