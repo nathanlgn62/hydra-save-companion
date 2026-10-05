@@ -19,38 +19,6 @@ interface SyncPayload {
 }
 
 // Fetch global de tous les jeux
-// Fonction séparée pour interroger l'API Steam et récupérer l'image du store
-async function fetchSteamCover(
-  objectId?: number | string | null,
-): Promise<string> {
-  if (!objectId) return "/path/to/default-placeholder.jpg";
-
-  try {
-    const response = await fetch(
-      `https://store.steampowered.com/api/appdetails?appids=${objectId}`,
-    );
-    const data = await response.json();
-
-    if (data[objectId]?.success && data[objectId]?.data) {
-      const gameData = data[objectId].data;
-      // Privilégie l'image d'en-tête, ou la capsule si disponible
-      return (
-        gameData.header_image ||
-        gameData.capsule_image ||
-        "/path/to/default-placeholder.jpg"
-      );
-    }
-  } catch (error) {
-    console.error(
-      `Erreur lors de la récupération de la jaquette pour l'appId ${objectId}:`,
-      error,
-    );
-  }
-
-  // Fallback de secours si l'API échoue
-  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${objectId}/library_600x900_2x.jpg`;
-}
-
 export function useGames() {
   return useQuery({
     queryKey: ["games"],
@@ -60,13 +28,18 @@ export function useGames() {
 
       const gamesWithSaves = await Promise.all(
         installedGames.map(async (game) => {
-          // On récupère en parallèle ou à la suite la jaquette via l'API JSON et les infos de sauvegarde
+          // On appelle Rust pour récupérer les sauvegardes et la jaquette en parallèle
           const [saveInfo, coverUrl] = await Promise.all([
             invoke<SaveInfoResponse>("get_game_save_info", {
               appId: game.objectId ?? null,
               title: game.title,
             }).catch(() => null),
-            fetchSteamCover(game.objectId),
+            invoke<string>("get_steam_cover", {
+              appId: game.objectId ?? null,
+            }).catch(
+              () =>
+                `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.objectId}/library_600x900_2x.jpg`,
+            ),
           ]);
 
           let remoteDate = "Jamais";

@@ -12,10 +12,6 @@ use crate::funcs::ludusavi::resolve_path_pattern;
 use crate::models::save::SaveInfo;
 use crate::models::sync::SyncStatusResult;
 
-fn is_valid_save_path(path: &Path) -> bool {
-    path.exists()
-}
-
 #[tauri::command]
 pub fn get_game_save_info(
     app_id: Option<String>,
@@ -301,4 +297,68 @@ pub async fn check_game_sync_status(
         localTime: local_str,
         cloudTime: "Jamais".to_string(),
     })
+}
+
+use reqwest;
+use serde_json::Value;
+
+#[tauri::command]
+pub async fn get_steam_cover(app_id: Option<i64>) -> Result<String, String> {
+    let default_cover = "/path/to/default-placeholder.jpg".to_string();
+
+    let id = match app_id {
+        Some(val) if val > 0 => val,
+        _ => return Ok(default_cover),
+    };
+
+    let url = format!(
+        "https://store.steampowered.com/api/appdetails?appids={}",
+        id
+    );
+
+    // Requête HTTP depuis Rust (pas de CORS)
+    let client = reqwest::Client::new();
+    let resp = match client.get(&url).send().await {
+        Ok(res) => res,
+        Err(_) => {
+            return Ok(format!(
+                "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900_2x.jpg",
+                id
+            ))
+        }
+    };
+
+    let json: Value = match resp.json().await {
+        Ok(j) => j,
+        Err(_) => {
+            return Ok(format!(
+                "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900_2x.jpg",
+                id
+            ))
+        }
+    };
+
+    // Extraction sécurisée des champs du JSON
+    if let Some(app_data) = json.get(&id.to_string()) {
+        if app_data
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            if let Some(data) = app_data.get("data") {
+                if let Some(header) = data.get("header_image").and_then(|v| v.as_str()) {
+                    return Ok(header.to_string());
+                }
+                if let Some(capsule) = data.get("capsule_image").and_then(|v| v.as_str()) {
+                    return Ok(capsule.to_string());
+                }
+            }
+        }
+    }
+
+    // Fallback sur le CDN direct si l'API ne renvoie rien
+    Ok(format!(
+        "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900_2x.jpg",
+        id
+    ))
 }

@@ -10,6 +10,7 @@ use commands::cloud::login_google;
 use commands::cloud::upload_game_save_to_drive;
 use commands::game::check_game_sync_status;
 use commands::game::get_game_save_info;
+use commands::game::get_steam_cover;
 use commands::hydra::get_installed_games;
 use commands::utils::open_folder;
 use commands::watcher::set_monitored_games;
@@ -35,7 +36,8 @@ pub fn run() {
             login_google,
             upload_game_save_to_drive,
             set_monitored_games,
-            download_game_save_from_drive
+            download_game_save_from_drive,
+            get_steam_cover
         ])
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
