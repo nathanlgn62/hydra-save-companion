@@ -19,6 +19,38 @@ interface SyncPayload {
 }
 
 // Fetch global de tous les jeux
+// Fonction séparée pour interroger l'API Steam et récupérer l'image du store
+async function fetchSteamCover(
+  objectId?: number | string | null,
+): Promise<string> {
+  if (!objectId) return "/path/to/default-placeholder.jpg";
+
+  try {
+    const response = await fetch(
+      `https://store.steampowered.com/api/appdetails?appids=${objectId}`,
+    );
+    const data = await response.json();
+
+    if (data[objectId]?.success && data[objectId]?.data) {
+      const gameData = data[objectId].data;
+      // Privilégie l'image d'en-tête, ou la capsule si disponible
+      return (
+        gameData.header_image ||
+        gameData.capsule_image ||
+        "/path/to/default-placeholder.jpg"
+      );
+    }
+  } catch (error) {
+    console.error(
+      `Erreur lors de la récupération de la jaquette pour l'appId ${objectId}:`,
+      error,
+    );
+  }
+
+  // Fallback de secours si l'API échoue
+  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${objectId}/library_600x900_2x.jpg`;
+}
+
 export function useGames() {
   return useQuery({
     queryKey: ["games"],
@@ -28,49 +60,46 @@ export function useGames() {
 
       const gamesWithSaves = await Promise.all(
         installedGames.map(async (game) => {
-          try {
-            const saveInfo = await invoke<SaveInfoResponse>(
-              "get_game_save_info",
-              {
-                appId: game.objectId ?? null,
-                title: game.title,
-              },
-            );
+          // On récupère en parallèle ou à la suite la jaquette via l'API JSON et les infos de sauvegarde
+          const [saveInfo, coverUrl] = await Promise.all([
+            invoke<SaveInfoResponse>("get_game_save_info", {
+              appId: game.objectId ?? null,
+              title: game.title,
+            }).catch(() => null),
+            fetchSteamCover(game.objectId),
+          ]);
 
-            let remoteDate = "Jamais";
-            if (storedToken) {
-              try {
-                const syncStatus = await invoke<any>("check_game_sync_status", {
-                  token: storedToken, // <-- On passe le token complet
-                  gameTitle: game.title,
-                  savePath: saveInfo.resolvedPath ?? "",
-                });
+          let remoteDate = "Jamais";
+          if (storedToken && saveInfo?.resolvedPath) {
+            try {
+              const syncStatus = await invoke<any>("check_game_sync_status", {
+                token: storedToken,
+                gameTitle: game.title,
+                savePath: saveInfo.resolvedPath,
+              });
 
-                if (syncStatus.status === "UpToDate")
-                  remoteDate = syncStatus.localTime;
-                else if (
-                  ["LocalNewer", "CloudNewer", "CloudOnly"].includes(
-                    syncStatus.status,
-                  )
+              if (syncStatus.status === "UpToDate")
+                remoteDate = syncStatus.localTime;
+              else if (
+                ["LocalNewer", "CloudNewer", "CloudOnly"].includes(
+                  syncStatus.status,
                 )
-                  remoteDate = syncStatus.cloudTime;
-              } catch {
-                remoteDate = "Jamais";
-              }
+              )
+                remoteDate = syncStatus.cloudTime;
+            } catch {
+              remoteDate = "Jamais";
             }
-
-            return {
-              ...game,
-              lastLocalSave: saveInfo.lastModified ?? "Jamais",
-              lastRemoteSave: remoteDate,
-              savePath: saveInfo.resolvedPath,
-              localPathExists: saveInfo.localPathExists,
-              ludasaviPathExists: saveInfo.ludasaviPathExists,
-              cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.objectId}/library_600x900_2x.jpg`,
-            } as HydraGame;
-          } catch {
-            return game;
           }
+
+          return {
+            ...game,
+            lastLocalSave: saveInfo?.lastModified ?? "Jamais",
+            lastRemoteSave: remoteDate,
+            savePath: saveInfo?.resolvedPath,
+            localPathExists: saveInfo?.localPathExists,
+            ludasaviPathExists: saveInfo?.ludasaviPathExists,
+            cover: coverUrl,
+          } as HydraGame;
         }),
       );
 
