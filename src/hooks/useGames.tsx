@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
+import { useMemo } from "react";
+import { useToasts } from "../stores/toastStore";
 import { HydraGame } from "../types/game";
+import { parseSaveDate } from "../utils/date";
+import { useDesktopNotification } from "./useDesktopNotification";
 
 interface SaveInfoResponse {
   ludasaviPathExists: boolean;
@@ -62,6 +66,7 @@ export function useGames() {
               savePath: saveInfo.resolvedPath,
               localPathExists: saveInfo.localPathExists,
               ludasaviPathExists: saveInfo.ludasaviPathExists,
+              cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.objectId}/library_600x900_2x.jpg`,
             } as HydraGame;
           } catch {
             return game;
@@ -176,11 +181,6 @@ export function useDownloadSave() {
     },
   });
 }
-
-import { useMemo } from "react";
-import { useToasts } from "../stores/toastStore";
-import { parseSaveDate } from "../utils/date";
-import { useDesktopNotification } from "./useDesktopNotification";
 
 export function useGameSyncStatus(
   lastLocalSave?: string | null,

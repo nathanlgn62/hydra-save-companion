@@ -4,6 +4,7 @@ export interface HydraGame {
   shop?: string;
   executablePath?: string;
   iconUrl?: string;
+  cover?: string;
   lastLocalSave?: string;
   lastRemoteSave?: string;
   savePath: string;
