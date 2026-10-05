@@ -304,11 +304,19 @@ use serde_json::Value;
 
 #[tauri::command]
 pub async fn get_steam_cover(app_id: Option<i64>) -> Result<String, String> {
+    println!(
+        "\n[DEBUG COVER] Récupération cover pour AppID: {:?}",
+        app_id
+    );
+
     let default_cover = "/path/to/default-placeholder.jpg".to_string();
 
     let id = match app_id {
         Some(val) if val > 0 => val,
-        _ => return Ok(default_cover),
+        _ => {
+            println!("[DEBUG COVER] -> AppID invalide ou absent, utilisation du placeholder.");
+            return Ok(default_cover);
+        }
     };
 
     let url = format!(
@@ -316,49 +324,86 @@ pub async fn get_steam_cover(app_id: Option<i64>) -> Result<String, String> {
         id
     );
 
-    // Requête HTTP depuis Rust (pas de CORS)
     let client = reqwest::Client::new();
     let resp = match client.get(&url).send().await {
-        Ok(res) => res,
-        Err(_) => {
+        Ok(res) => {
+            println!("[DEBUG COVER] -> Requête HTTP réussie pour l'ID {}", id);
+            res
+        }
+        Err(e) => {
+            println!(
+                "[DEBUG COVER] -> Erreur réseau HTTP: {}, fallback CDN direct",
+                e
+            );
             return Ok(format!(
                 "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900_2x.jpg",
                 id
-            ))
+            ));
         }
     };
 
-    let json: Value = match resp.json().await {
+    let text_resp = match resp.text().await {
+        Ok(t) => t,
+        Err(e) => {
+            println!("[DEBUG COVER] -> Erreur lecture texte réponse: {}", e);
+            String::new()
+        }
+    };
+
+    println!(
+        "[DEBUG COVER] -> Réponse brute API Steam (premiers 300 caractères) : {}",
+        &text_resp.chars().take(300).collect::<String>()
+    );
+
+    let json: Value = match serde_json::from_str(&text_resp) {
         Ok(j) => j,
-        Err(_) => {
+        Err(e) => {
+            println!("[DEBUG COVER] -> Erreur parsing JSON: {}", e);
             return Ok(format!(
                 "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900_2x.jpg",
                 id
-            ))
+            ));
         }
     };
 
-    // Extraction sécurisée des champs du JSON
     if let Some(app_data) = json.get(&id.to_string()) {
-        if app_data
+        let success = app_data
             .get("success")
             .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
+            .unwrap_or(false);
+        println!(
+            "[DEBUG COVER] -> Champ 'success' pour l'ID {} : {}",
+            id, success
+        );
+
+        if success {
             if let Some(data) = app_data.get("data") {
                 if let Some(header) = data.get("header_image").and_then(|v| v.as_str()) {
+                    println!("[DEBUG COVER] -> Trouvé header_image : {}", header);
                     return Ok(header.to_string());
                 }
                 if let Some(capsule) = data.get("capsule_image").and_then(|v| v.as_str()) {
+                    println!("[DEBUG COVER] -> Trouvé capsule_image : {}", capsule);
                     return Ok(capsule.to_string());
                 }
+                println!("[DEBUG COVER] -> 'data' présent mais ni header_image ni capsule_image trouvés.");
+            } else {
+                println!("[DEBUG COVER] -> Objet 'data' absent dans le JSON.");
             }
+        } else {
+            println!("[DEBUG COVER] -> L'API Steam indique success: false (jeu retiré, ID invalide ou région bloquée).");
         }
+    } else {
+        println!(
+            "[DEBUG COVER] -> Clé '{}' absente à la racine du JSON Steam.",
+            id
+        );
     }
 
-    // Fallback sur le CDN direct si l'API ne renvoie rien
-    Ok(format!(
+    let fallback = format!(
         "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900_2x.jpg",
         id
-    ))
+    );
+    println!("[DEBUG COVER] -> Fallback final utilisé : {}", fallback);
+    Ok(fallback)
 }
