@@ -1,40 +1,43 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { getStoredStatus } from "../utils/storage";
 
-type CloudListener = (isConnected: boolean) => void;
+type CloudListener = (status: {
+  isConnected: boolean;
+  provider: string | null;
+}) => void;
 
-let isDriveConnected = !!localStorage.getItem("gdrive_token");
-let isConnecting = false;
 const listeners = new Set<CloudListener>();
 
 const notifyListeners = () => {
-  listeners.forEach((listener) => listener(isDriveConnected));
+  const status = getStoredStatus();
+  listeners.forEach((listener) => listener(status));
 };
 
-export const loginGoogle = async () => {
-  isConnecting = true;
+export const loginCloud = async (provider: string) => {
   try {
-    const token = await invoke<string>("login_google");
-    if (token) {
-      localStorage.setItem("gdrive_token", token);
-      isDriveConnected = true;
+    const tokenResponse = await invoke<string>("login_cloud", { provider });
+
+    if (tokenResponse) {
+      localStorage.setItem("cloud_provider", provider);
+      localStorage.setItem("cloud_token", tokenResponse);
       notifyListeners();
     }
   } catch (err) {
-    console.error("Erreur d'authentification Google :", err);
-    alert("Échec de la connexion Google.");
-  } finally {
-    isConnecting = false;
+    console.error(`Erreur d'authentification pour ${provider} :`, err);
+    alert(`Échec de la connexion à ${provider} : ${err}`);
   }
 };
 
-export const disconnectGoogle = () => {
+export const disconnectCloud = () => {
+  localStorage.removeItem("cloud_token");
+  localStorage.removeItem("cloud_provider");
   localStorage.removeItem("gdrive_token");
-  isDriveConnected = false;
+
   notifyListeners();
 };
 
-export const getDriveStatus = () => isDriveConnected;
+export const getCloudStatus = () => getStoredStatus();
 
 export const subscribeToCloudStatus = (listener: CloudListener) => {
   listeners.add(listener);
@@ -44,13 +47,22 @@ export const subscribeToCloudStatus = (listener: CloudListener) => {
 };
 
 export function useCloudStatus() {
-  const [connected, setConnected] = useState(getDriveStatus());
+  const [status, setStatus] = useState(getCloudStatus());
 
   useEffect(() => {
-    return subscribeToCloudStatus((status) => {
-      setConnected(status);
+    setStatus(getCloudStatus());
+
+    return subscribeToCloudStatus((newStatus) => {
+      setStatus(newStatus);
     });
   }, []);
 
-  return { isDriveConnected: connected, loginGoogle, disconnectGoogle };
+  return {
+    isDriveConnected: status.isConnected,
+    cloudProvider: status.provider,
+    loginCloud,
+    disconnectCloud,
+    loginGoogle: () => loginCloud("google-drive"),
+    disconnectGoogle: disconnectCloud,
+  };
 }

@@ -3,20 +3,38 @@ import { useState } from "react";
 import { useAutoDownloadSaves } from "../hooks/useAutoSync";
 import { useGames } from "../hooks/useGames";
 import { useSettings } from "../hooks/useSettings";
-import { useCloudStatus } from "../stores/cloudStore";
+import { loginCloud, useCloudStatus } from "../stores/cloudStore";
+import { getProviderDisplayName } from "../utils/provider-display-name";
 import SettingsModal from "./setting/setting-modal";
 import ToastHistoryPanel from "./toast/toast-history-pannel";
+import CloudProviderModal from "./UI/Modals/cloud-provider-modal";
 
 export default function Header() {
   const [loading] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false); // <--- État du panneau
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
 
   const { timeLeft, isManual } = useAutoDownloadSaves();
   const { settings, updateSettings, loading: loadingSettings } = useSettings();
-  const { isDriveConnected, loginGoogle, disconnectGoogle } = useCloudStatus();
+  const { isDriveConnected, cloudProvider, disconnectGoogle } =
+    useCloudStatus();
 
   const { data: games } = useGames();
+
+  const handleCloudAction = () => {
+    if (isDriveConnected) {
+      if (confirm("Veux-tu te déconnecter du Cloud ?")) {
+        disconnectGoogle();
+      }
+    } else {
+      setIsCloudModalOpen(true);
+    }
+  };
+
+  const handleSelectProvider = (providerId: string) => {
+    loginCloud(providerId);
+  };
 
   return (
     <>
@@ -53,15 +71,7 @@ export default function Header() {
 
           <button
             type="button"
-            onClick={() => {
-              if (isDriveConnected) {
-                if (confirm("Veux-tu te déconnecter de Google Drive ?")) {
-                  disconnectGoogle();
-                }
-              } else {
-                loginGoogle();
-              }
-            }}
+            onClick={handleCloudAction}
             disabled={loading}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer disabled:opacity-50 ${
               isDriveConnected
@@ -70,8 +80,8 @@ export default function Header() {
             }`}
             title={
               isDriveConnected
-                ? "Connecté (Cliquer pour déconnecter)"
-                : "Se connecter à Google Drive"
+                ? `Connecté à ${getProviderDisplayName(cloudProvider)} (Cliquer pour déconnecter)`
+                : "Choisir un service Cloud"
             }
           >
             {isDriveConnected ? (
@@ -83,12 +93,11 @@ export default function Header() {
               {loading
                 ? "Connexion..."
                 : isDriveConnected
-                  ? "Cloud connecté"
+                  ? getProviderDisplayName(cloudProvider)
                   : "Cloud déconnecté"}
             </span>
           </button>
 
-          {/* Bouton pour ouvrir l'historique des toasts */}
           <button
             type="button"
             onClick={() => setIsHistoryOpen(true)}
@@ -117,7 +126,12 @@ export default function Header() {
         loadingSettings={loadingSettings}
       />
 
-      {/* Panneau latéral de l'historique */}
+      <CloudProviderModal
+        isOpen={isCloudModalOpen}
+        onClose={() => setIsCloudModalOpen(false)}
+        onSelectProvider={handleSelectProvider}
+      />
+
       <ToastHistoryPanel
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
