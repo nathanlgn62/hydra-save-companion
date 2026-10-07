@@ -44,6 +44,8 @@ export function useGames() {
             ),
           ]);
 
+          console.log("saveInfo", saveInfo);
+
           let remoteDate = "Jamais";
           if (storedToken && saveInfo?.resolvedPath) {
             try {

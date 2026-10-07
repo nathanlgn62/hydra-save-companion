@@ -56,13 +56,11 @@ async fn upload_to_google_drive(
     let access_token = get_valid_access_token(client, token, Some("google-drive")).await?;
     let folder_id = get_or_create_drive_folder(client, token, Some("google-drive")).await?;
 
-    // On s'assure de nettoyer le titre et de n'ajouter .zip qu'une seule fois
     let clean_title = game_title
         .replace(".zip", "")
         .replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
     let file_name = format!("{}.zip", clean_title);
 
-    // 1. CRÉATION DE LA NOUVELLE SAUVEGARDE (POST)
     let metadata = serde_json::json!({
         "name": file_name,
         "parents": [folder_id],
@@ -105,7 +103,6 @@ async fn upload_to_google_drive(
         ));
     }
 
-    // 2. NETTOYAGE : GARDER UNIQUEMENT LES 5 DERNIÈRES SAUVEGARDES PORTANT CE NOM
     let search_query = format!(
         "name = '{}' and '{}' in parents and trashed = false",
         file_name.replace('\'', "\\'"),
@@ -329,88 +326,6 @@ pub async fn upload_game_save_to_drive(
     }
 }
 
-async fn download_from_google_drive(
-    client: &reqwest::Client,
-    token: &str,
-    file_name: &str,
-    game_title: &str,
-) -> Result<(Vec<u8>, std::time::SystemTime), String> {
-    let access_token = get_valid_access_token(client, token, Some("google-drive")).await?;
-    let folder_id = get_or_create_drive_folder(client, token, Some("google-drive")).await?;
-
-    let search_query = format!(
-        "name = '{}' and '{}' in parents and trashed = false",
-        file_name.replace('\'', "\\'"),
-        folder_id
-    );
-
-    let search_res = client
-        .get("https://www.googleapis.com/drive/v3/files")
-        .bearer_auth(&access_token)
-        .query(&[
-            ("q", search_query.as_str()),
-            ("fields", "files(id, name, modifiedTime)"),
-        ])
-        .send()
-        .await
-        .map_err(|e| format!("Erreur recherche sauvegarde distante Google Drive : {}", e))?;
-
-    if !search_res.status().is_success() {
-        let err_text = search_res.text().await.unwrap_or_default();
-        return Err(format!(
-            "Erreur lors de la recherche du fichier distant Google Drive : {}",
-            err_text
-        ));
-    }
-
-    let search_json: serde_json::Value = search_res
-        .json()
-        .await
-        .map_err(|e| format!("Erreur parsage réponse Google Drive : {}", e))?;
-
-    let file_obj = search_json["files"]
-        .as_array()
-        .and_then(|files| files.first())
-        .ok_or_else(|| format!("Aucune sauvegarde distante trouvée pour '{}'", game_title))?;
-
-    let file_id = file_obj["id"]
-        .as_str()
-        .ok_or_else(|| "ID du fichier distant introuvable".to_string())?;
-
-    let remote_modified_time_str = file_obj["modifiedTime"].as_str().unwrap_or_default();
-
-    let drive_system_time = chrono::DateTime::parse_from_rfc3339(remote_modified_time_str)
-        .map(std::time::SystemTime::from)
-        .unwrap_or_else(|_| std::time::SystemTime::now());
-
-    let download_url = format!(
-        "https://www.googleapis.com/drive/v3/files/{}?alt=media",
-        file_id
-    );
-    let download_res = client
-        .get(&download_url)
-        .bearer_auth(&access_token)
-        .send()
-        .await
-        .map_err(|e| format!("Erreur réseau téléchargement Google Drive : {}", e))?;
-
-    if !download_res.status().is_success() {
-        let err_text = download_res.text().await.unwrap_or_default();
-        return Err(format!(
-            "Erreur lors du téléchargement Google Drive : {}",
-            err_text
-        ));
-    }
-
-    let zip_bytes = download_res
-        .bytes()
-        .await
-        .map_err(|e| format!("Erreur lecture octets ZIP : {}", e))?
-        .to_vec();
-
-    Ok((zip_bytes, drive_system_time))
-}
-
 async fn download_from_dropbox(
     client: &reqwest::Client,
     token: &str,
@@ -623,6 +538,7 @@ pub async fn download_game_save_from_drive(
     game_title: String,
     save_path: String,
     provider: Option<String>,
+    file_id: Option<String>, // Paramètre optionnel pour cibler un historique précis
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
     let provider_name = provider.as_deref().unwrap_or("google-drive").to_lowercase();
@@ -634,18 +550,13 @@ pub async fn download_game_save_from_drive(
 
     let (zip_bytes, remote_system_time) = match provider_name.as_str() {
         "google-drive" | "gdrive" | "google" => {
-            download_from_google_drive(&client, &token, &file_name, &game_title).await?
+            download_from_google_drive(&client, &token, &file_name, &game_title, file_id).await?
         }
         "dropbox" => download_from_dropbox(&client, &token, &file_name, &game_title).await?,
         "proton-drive" | "proton" => {
             download_from_proton_drive(&client, &token, &file_name, &game_title).await?
         }
-        other => {
-            return Err(format!(
-                "Fournisseur cloud '{}' non supporté pour le téléchargement.",
-                other
-            ))
-        }
+        other => return Err(format!("Fournisseur cloud '{}' non supporté.", other)),
     };
 
     restore_save_from_zip(zip_bytes, &save_path, remote_system_time)?;
@@ -654,6 +565,96 @@ pub async fn download_game_save_from_drive(
         "Sauvegarde de '{}' restaurée avec succès !",
         game_title
     ))
+}
+
+async fn download_from_google_drive(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    game_title: &str,
+    target_file_id: Option<String>,
+) -> Result<(Vec<u8>, std::time::SystemTime), String> {
+    let access_token = get_valid_access_token(client, token, Some("google-drive")).await?;
+    let folder_id = get_or_create_drive_folder(client, token, Some("google-drive")).await?;
+
+    let file_id = match target_file_id {
+        Some(id) => id,
+        None => {
+            let search_query = format!(
+                "name = '{}' and '{}' in parents and trashed = false",
+                file_name.replace('\'', "\\'"),
+                folder_id
+            );
+
+            let search_res = client
+                .get("https://www.googleapis.com/drive/v3/files")
+                .bearer_auth(&access_token)
+                .query(&[
+                    ("q", search_query.as_str()),
+                    ("fields", "files(id, modifiedTime)"),
+                    ("orderBy", "createdTime desc"),
+                ])
+                .send()
+                .await
+                .map_err(|e| format!("Erreur recherche sauvegarde : {}", e))?;
+
+            let search_json: serde_json::Value =
+                search_res.json().await.map_err(|e| e.to_string())?;
+            let files = search_json["files"].as_array().ok_or("Format invalide")?;
+            let first = files
+                .first()
+                .ok_or_else(|| format!("Aucune sauvegarde trouvée pour '{}'", game_title))?;
+            first["id"].as_str().ok_or("ID introuvable")?.to_string()
+        }
+    };
+
+    let meta_res = client
+        .get(&format!(
+            "https://www.googleapis.com/drive/v3/files/{}?fields=modifiedTime",
+            file_id
+        ))
+        .bearer_auth(&access_token)
+        .send()
+        .await;
+
+    let drive_system_time = if let Ok(res) = meta_res {
+        if let Ok(json) = res.json::<serde_json::Value>().await {
+            if let Some(time_str) = json["modifiedTime"].as_str() {
+                chrono::DateTime::parse_from_rfc3339(time_str)
+                    .map(std::time::SystemTime::from)
+                    .unwrap_or_else(|_| std::time::SystemTime::now())
+            } else {
+                std::time::SystemTime::now()
+            }
+        } else {
+            std::time::SystemTime::now()
+        }
+    } else {
+        std::time::SystemTime::now()
+    };
+
+    let download_url = format!(
+        "https://www.googleapis.com/drive/v3/files/{}?alt=media",
+        file_id
+    );
+    let download_res = client
+        .get(&download_url)
+        .bearer_auth(&access_token)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau téléchargement : {}", e))?;
+
+    if !download_res.status().is_success() {
+        let err_text = download_res.text().await.unwrap_or_default();
+        return Err(format!("Erreur téléchargement : {}", err_text));
+    }
+
+    let zip_bytes = download_res
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?
+        .to_vec();
+    Ok((zip_bytes, drive_system_time))
 }
 
 #[tauri::command]
@@ -747,7 +748,7 @@ pub async fn login_cloud(provider: String) -> Result<String, String> {
         .to_string();
 
     let client = reqwest::Client::new();
-    let mut params = vec![
+    let params = vec![
         ("code", code),
         ("client_id", client_id),
         ("client_secret", client_secret),

@@ -9,7 +9,7 @@ use crate::funcs::ludusavi::get_cached_manifest;
 use crate::funcs::ludusavi::resolve_ludusavi_placeholders;
 use crate::funcs::ludusavi::resolve_path_pattern;
 use crate::models::save::SaveInfo;
-use crate::models::sync::SyncStatusResult;
+use crate::models::sync::{RemoteBackupInfo, SyncStatusResult};
 
 use reqwest;
 use serde_json::Value;
@@ -291,7 +291,6 @@ async fn check_sync_google_drive(
         cloudTime: "Jamais".to_string(),
     })
 }
-
 async fn check_sync_dropbox(
     token: String,
     file_name: String,
