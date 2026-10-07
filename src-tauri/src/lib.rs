@@ -7,7 +7,6 @@ use funcs::watcher::start_process_watcher;
 
 use commands::cloud::download_game_save_from_drive;
 use commands::cloud::login_cloud;
-use commands::cloud::login_google;
 use commands::cloud::upload_game_save_to_drive;
 use commands::game::check_game_sync_status;
 use commands::game::get_game_save_info;
@@ -34,7 +33,6 @@ pub fn run() {
             get_game_save_info,
             check_game_sync_status,
             open_folder,
-            login_google,
             login_cloud,
             upload_game_save_to_drive,
             set_monitored_games,

@@ -10,119 +10,52 @@ use crate::funcs::cloud::get_or_create_drive_folder;
 use crate::funcs::cloud::get_valid_access_token;
 use crate::funcs::hydra::get_latest_modified_time;
 
-#[tauri::command]
-pub async fn login_google() -> Result<String, String> {
-    let client_id = std::env::var("HSC_GC_ID")
-        .map_err(|_| "La variable GOOGLE_CLIENT_ID est manquante".to_string())?;
+fn create_save_zip(path: &Path) -> Result<Vec<u8>, String> {
+    let mut zip_buffer = Vec::new();
+    {
+        let cursor = Cursor::new(&mut zip_buffer);
+        let mut zip = zip::ZipWriter::new(cursor);
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-    let client_secret = std::env::var("HSC_GS")
-        .map_err(|_| "La variable GOOGLE_CLIENT_SECRET est manquante".to_string())?;
-
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let tx_cell = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
-
-    let config = OauthConfig {
-        ports: Some(vec![8000, 8001, 8002]),
-        response: Some("Authentification réussie ! Vous pouvez fermer cette page et retourner sur l'application.".into()),
-        ..Default::default()
-    };
-
-    std::thread::spawn(move || {
-        let _ = start_with_config(config, move |url| {
-            if let Ok(mut sender_lock) = tx_cell.lock() {
-                if let Some(sender) = sender_lock.take() {
-                    let _ = sender.send(url);
+        if path.is_dir() {
+            let walk = walkdir::WalkDir::new(path);
+            for entry in walk.into_iter().filter_map(|e| e.ok()) {
+                let entry_path = entry.path();
+                if entry_path.is_file() {
+                    let name = entry_path.strip_prefix(path).map_err(|e| e.to_string())?;
+                    zip.start_file(name.to_string_lossy(), options)
+                        .map_err(|e| e.to_string())?;
+                    let mut f = fs::File::open(entry_path).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
                 }
             }
-        });
-    });
-
-    let redirect_uri = "http://localhost:8000";
-    let auth_url = format!(
-        "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=https://www.googleapis.com/auth/drive.file&access_type=offline",
-        client_id, redirect_uri
-    );
-
-    open::that(&auth_url).map_err(|e| e.to_string())?;
-
-    let url_string = rx.await.map_err(|e| e.to_string())?;
-
-    let parsed_url = Url::parse(&url_string).map_err(|e| e.to_string())?;
-    let code = parsed_url
-        .query_pairs()
-        .find(|(k, _)| k == "code")
-        .ok_or("Code d'autorisation introuvable dans l'URL de retour".to_string())?
-        .1
-        .to_string();
-
-    let client = reqwest::Client::new();
-    let params = [
-        ("code", code.as_str()),
-        ("client_id", client_id.as_str()),
-        ("client_secret", client_secret.as_str()),
-        ("redirect_uri", redirect_uri),
-        ("grant_type", "authorization_code"),
-    ];
-
-    let res = client
-        .post("https://oauth2.googleapis.com/token")
-        .form(&params)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let access_token = res
-        .get("access_token")
-        .and_then(|t| t.as_str())
-        .ok_or("Access token introuvable")?;
-
-    let refresh_token = res
-        .get("refresh_token")
-        .and_then(|t| t.as_str())
-        .unwrap_or("");
-
-    Ok(format!("{}|{}", access_token, refresh_token))
+        } else {
+            let single_file_name = path
+                .file_name()
+                .ok_or("Nom de fichier invalide")?
+                .to_string_lossy();
+            zip.start_file(single_file_name, options)
+                .map_err(|e| e.to_string())?;
+            let mut f = fs::File::open(path).map_err(|e| e.to_string())?;
+            std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
+        }
+        zip.finish().map_err(|e| e.to_string())?;
+    }
+    Ok(zip_buffer)
 }
 
-#[tauri::command]
-pub async fn upload_game_save_to_drive(
-    token: String,
-    game_title: String,
-    save_path: String,
+async fn upload_to_google_drive(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    zip_buffer: Vec<u8>,
+    local_modified_str: &str,
+    local_rfc3339: &str,
 ) -> Result<String, String> {
-    let client = reqwest::Client::new();
-    let access_token = get_valid_access_token(&client, &token).await?;
-    let folder_id = get_or_create_drive_folder(&client, &token).await?;
+    let access_token = get_valid_access_token(client, token, Some("google-drive")).await?;
+    let folder_id = get_or_create_drive_folder(client, token, Some("google-drive")).await?;
 
-    let path = std::path::Path::new(&save_path);
-    if !path.exists() {
-        return Err(format!(
-            "Le chemin de sauvegarde local est introuvable : {}",
-            save_path
-        ));
-    }
-
-    let file_name = format!(
-        "{}.zip",
-        game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
-    );
-
-    // -------------------------------------------------------------
-    // 1. RÉCUPÉRATION DE LA DATE LOCALE EXACTE (UTC & Format string)
-    // -------------------------------------------------------------
-    let local_modified_system_time =
-        get_latest_modified_time(path).unwrap_or(std::time::SystemTime::now());
-
-    let local_dt_utc: chrono::DateTime<chrono::Utc> = local_modified_system_time.into();
-    let local_modified_str = local_dt_utc.format("%d/%m/%Y %H:%M").to_string();
-    let local_rfc3339 = local_dt_utc.to_rfc3339();
-
-    // -------------------------------------------------------------
-    // 2. RECHERCHE D'UN FICHIER EXISTANT SUR LE CLOUD
-    // -------------------------------------------------------------
     let search_query = format!(
         "name = '{}' and '{}' in parents and trashed = false",
         file_name.replace('\'', "\\'"),
@@ -135,7 +68,7 @@ pub async fn upload_game_save_to_drive(
         .query(&[("q", search_query.as_str()), ("fields", "files(id)")])
         .send()
         .await
-        .map_err(|e| format!("Erreur recherche ancien fichier : {}", e))?;
+        .map_err(|e| format!("Erreur recherche ancien fichier Google Drive : {}", e))?;
 
     let existing_file_id = if search_res.status().is_success() {
         let json = search_res.json::<serde_json::Value>().await.ok();
@@ -149,44 +82,6 @@ pub async fn upload_game_save_to_drive(
         None
     };
 
-    // -------------------------------------------------------------
-    // 3. CRÉATION DU ZIP
-    // -------------------------------------------------------------
-    let mut zip_buffer = Vec::new();
-    {
-        let cursor = std::io::Cursor::new(&mut zip_buffer);
-        let mut zip = zip::ZipWriter::new(cursor);
-        let options =
-            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-
-        if path.is_dir() {
-            let walk = walkdir::WalkDir::new(path);
-            for entry in walk.into_iter().filter_map(|e| e.ok()) {
-                let entry_path = entry.path();
-                if entry_path.is_file() {
-                    let name = entry_path.strip_prefix(path).map_err(|e| e.to_string())?;
-                    zip.start_file(name.to_string_lossy(), options)
-                        .map_err(|e| e.to_string())?;
-                    let mut f = std::fs::File::open(entry_path).map_err(|e| e.to_string())?;
-                    std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
-                }
-            }
-        } else {
-            let single_file_name = path
-                .file_name()
-                .ok_or("Nom de fichier invalide")?
-                .to_string_lossy();
-            zip.start_file(single_file_name, options)
-                .map_err(|e| e.to_string())?;
-            let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
-            std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
-        }
-        zip.finish().map_err(|e| e.to_string())?;
-    }
-
-    // -------------------------------------------------------------
-    // 4. PRÉPARATION DES MÉTADONNÉES ET DU MULTIPART
-    // -------------------------------------------------------------
     let metadata = match existing_file_id {
         Some(_) => serde_json::json!({
             "name": file_name,
@@ -215,14 +110,11 @@ pub async fn upload_game_save_to_drive(
         .part(
             "file",
             reqwest::multipart::Part::bytes(zip_buffer)
-                .file_name(file_name.clone())
+                .file_name(file_name.to_string())
                 .mime_str("application/zip")
                 .map_err(|e| e.to_string())?,
         );
 
-    // -------------------------------------------------------------
-    // 5. UPLOAD (POST SI NOUVEAU, PATCH SI EXISTANT)
-    // -------------------------------------------------------------
     let (upload_url, method) = match existing_file_id {
         Some(id) => (
             format!(
@@ -243,30 +135,206 @@ pub async fn upload_game_save_to_drive(
         .multipart(multipart)
         .send()
         .await
-        .map_err(|e| format!("Erreur réseau upload : {}", e))?;
+        .map_err(|e| format!("Erreur réseau upload Google Drive : {}", e))?;
 
     if upload_res.status().is_success() {
-        Ok(format!("Archive '{}' uploadée avec succès !", file_name))
+        Ok(format!(
+            "Archive '{}' uploadée avec succès sur Google Drive !",
+            file_name
+        ))
     } else {
         let err_text = upload_res.text().await.unwrap_or_default();
-        Err(format!("Erreur lors de l'upload : {}", err_text))
+        Err(format!(
+            "Erreur lors de l'upload Google Drive : {}",
+            err_text
+        ))
+    }
+}
+
+async fn upload_to_dropbox(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    zip_buffer: Vec<u8>,
+    local_dt_utc: &chrono::DateTime<chrono::Utc>,
+) -> Result<String, String> {
+    let access_token = get_valid_access_token(client, token, Some("dropbox")).await?;
+    let _ = get_or_create_drive_folder(client, token, Some("dropbox")).await;
+
+    let dropbox_arg = serde_json::json!({
+        "path": format!("/hydra-save-companion/{}", file_name),
+        "mode": "overwrite",
+        "autorename": false,
+        "mute": false,
+        "strict_conflict": false,
+        "client_modified": local_dt_utc.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+    });
+
+    let arg_str = serde_json::to_string(&dropbox_arg).unwrap_or_default();
+    let ascii_arg: String = arg_str
+        .chars()
+        .map(|c| {
+            if c.is_ascii() && c != '\r' && c != '\n' {
+                c.to_string()
+            } else {
+                format!("\\u{:04x}", c as u32)
+            }
+        })
+        .collect();
+
+    let upload_res = client
+        .post("https://content.dropboxapi.com/2/files/upload")
+        .bearer_auth(&access_token)
+        .header("Dropbox-API-Arg", &ascii_arg)
+        .header("Content-Type", "application/octet-stream")
+        .body(zip_buffer)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau Dropbox upload : {}", e))?;
+
+    if upload_res.status().is_success() {
+        Ok(format!(
+            "Archive '{}' uploadée avec succès sur Dropbox !",
+            file_name
+        ))
+    } else {
+        let err_text = upload_res.text().await.unwrap_or_default();
+        Err(format!("Erreur lors de l'upload Dropbox : {}", err_text))
+    }
+}
+
+async fn upload_to_proton_drive(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    zip_buffer: Vec<u8>,
+) -> Result<String, String> {
+    // 1. Détection prioritaire du dossier synchronisé Proton Drive local
+    let local_proton_base = if cfg!(target_os = "windows") {
+        std::env::var("USERPROFILE")
+            .ok()
+            .map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
+    } else {
+        std::env::var("HOME")
+            .ok()
+            .map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
+    };
+
+    if let Some(base) = local_proton_base {
+        if base.exists() {
+            let dest_dir = base.join("hydra-save-companion");
+            let _ = fs::create_dir_all(&dest_dir);
+            let dest_file = dest_dir.join(file_name);
+            fs::write(&dest_file, &zip_buffer)
+                .map_err(|e| format!("Erreur écriture dans le dossier Proton Drive : {}", e))?;
+            return Ok(format!(
+                "Archive '{}' synchronisée avec succès dans le dossier local Proton Drive !",
+                file_name
+            ));
+        }
+    }
+
+    // 2. Si aucun dossier local n'est détecté, vérification de l'accès API avec le jeton OAuth
+    let access_token = get_valid_access_token(client, token, Some("proton-drive")).await?;
+    if access_token.is_empty() {
+        return Err("Aucun jeton d'accès Proton Drive valide et aucun dossier 'Proton Drive' local détecté.".to_string());
+    }
+
+    let api_res = client
+        .get("https://mail-api.proton.me/drive/volumes")
+        .bearer_auth(&access_token)
+        .header("x-pm-appversion", "Other")
+        .header("x-pm-locale", "fr_FR")
+        .send()
+        .await;
+
+    match api_res {
+        Ok(res) if res.status().is_success() => {
+            Ok(format!(
+                "Session Proton Drive active. (Pour le téléversement complet, le client Proton Drive de bureau est recommandé afin d'appliquer le chiffrement E2E)."
+            ))
+        }
+        Ok(res) => {
+            let err_text = res.text().await.unwrap_or_default();
+            Err(format!(
+                "Proton Drive nécessite un chiffrement de bout en bout (E2E). Veuillez lancer le client de bureau Proton Drive (dossier 'Proton Drive' introuvable). Détails : {}",
+                err_text
+            ))
+        }
+        Err(e) => Err(format!(
+            "Erreur lors de la communication avec Proton Drive : {}",
+            e
+        )),
     }
 }
 
 #[tauri::command]
-pub async fn download_game_save_from_drive(
+pub async fn upload_game_save_to_drive(
     token: String,
     game_title: String,
     save_path: String,
+    provider: Option<String>,
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
-    let access_token = get_valid_access_token(&client, &token).await?;
-    let folder_id = get_or_create_drive_folder(&client, &token).await?;
+    let provider_name = provider.as_deref().unwrap_or("google-drive").to_lowercase();
+
+    let path = Path::new(&save_path);
+    if !path.exists() {
+        return Err(format!(
+            "Le chemin de sauvegarde local est introuvable : {}",
+            save_path
+        ));
+    }
 
     let file_name = format!(
         "{}.zip",
         game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
     );
+
+    // 1. Récupération de la date locale exacte
+    let local_modified_system_time =
+        get_latest_modified_time(path).unwrap_or(std::time::SystemTime::now());
+    let local_dt_utc: chrono::DateTime<chrono::Utc> = local_modified_system_time.into();
+    let local_modified_str = local_dt_utc.format("%d/%m/%Y %H:%M").to_string();
+    let local_rfc3339 = local_dt_utc.to_rfc3339();
+
+    // 2. Création de l'archive ZIP
+    let zip_buffer = create_save_zip(path)?;
+
+    // 3. Routage vers le bon fournisseur Cloud
+    match provider_name.as_str() {
+        "google-drive" | "gdrive" | "google" => {
+            upload_to_google_drive(
+                &client,
+                &token,
+                &file_name,
+                zip_buffer,
+                &local_modified_str,
+                &local_rfc3339,
+            )
+            .await
+        }
+        "dropbox" => {
+            upload_to_dropbox(&client, &token, &file_name, zip_buffer, &local_dt_utc).await
+        }
+        "proton-drive" | "proton" => {
+            upload_to_proton_drive(&client, &token, &file_name, zip_buffer).await
+        }
+        other => Err(format!(
+            "Fournisseur cloud '{}' non supporté pour l'upload.",
+            other
+        )),
+    }
+}
+
+async fn download_from_google_drive(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    game_title: &str,
+) -> Result<(Vec<u8>, std::time::SystemTime), String> {
+    let access_token = get_valid_access_token(client, token, Some("google-drive")).await?;
+    let folder_id = get_or_create_drive_folder(client, token, Some("google-drive")).await?;
 
     let search_query = format!(
         "name = '{}' and '{}' in parents and trashed = false",
@@ -283,12 +351,12 @@ pub async fn download_game_save_from_drive(
         ])
         .send()
         .await
-        .map_err(|e| format!("Erreur recherche sauvegarde distante : {}", e))?;
+        .map_err(|e| format!("Erreur recherche sauvegarde distante Google Drive : {}", e))?;
 
     if !search_res.status().is_success() {
         let err_text = search_res.text().await.unwrap_or_default();
         return Err(format!(
-            "Erreur lors de la recherche du fichier distant : {}",
+            "Erreur lors de la recherche du fichier distant Google Drive : {}",
             err_text
         ));
     }
@@ -296,7 +364,7 @@ pub async fn download_game_save_from_drive(
     let search_json: serde_json::Value = search_res
         .json()
         .await
-        .map_err(|e| format!("Erreur parsage réponse Drive : {}", e))?;
+        .map_err(|e| format!("Erreur parsage réponse Google Drive : {}", e))?;
 
     let file_obj = search_json["files"]
         .as_array()
@@ -310,7 +378,7 @@ pub async fn download_game_save_from_drive(
     let remote_modified_time_str = file_obj["modifiedTime"].as_str().unwrap_or_default();
 
     let drive_system_time = chrono::DateTime::parse_from_rfc3339(remote_modified_time_str)
-        .map(|dt| std::time::SystemTime::from(dt))
+        .map(std::time::SystemTime::from)
         .unwrap_or_else(|_| std::time::SystemTime::now());
 
     let download_url = format!(
@@ -322,19 +390,137 @@ pub async fn download_game_save_from_drive(
         .bearer_auth(&access_token)
         .send()
         .await
-        .map_err(|e| format!("Erreur réseau téléchargement : {}", e))?;
+        .map_err(|e| format!("Erreur réseau téléchargement Google Drive : {}", e))?;
 
     if !download_res.status().is_success() {
         let err_text = download_res.text().await.unwrap_or_default();
-        return Err(format!("Erreur lors du téléchargement : {}", err_text));
+        return Err(format!(
+            "Erreur lors du téléchargement Google Drive : {}",
+            err_text
+        ));
     }
 
     let zip_bytes = download_res
         .bytes()
         .await
-        .map_err(|e| format!("Erreur lecture octets ZIP : {}", e))?;
+        .map_err(|e| format!("Erreur lecture octets ZIP : {}", e))?
+        .to_vec();
 
-    let target_path = Path::new(&save_path);
+    Ok((zip_bytes, drive_system_time))
+}
+
+async fn download_from_dropbox(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    game_title: &str,
+) -> Result<(Vec<u8>, std::time::SystemTime), String> {
+    let access_token = get_valid_access_token(client, token, Some("dropbox")).await?;
+
+    let dropbox_arg = serde_json::json!({
+        "path": format!("/hydra-save-companion/{}", file_name)
+    });
+
+    let arg_str = serde_json::to_string(&dropbox_arg).unwrap_or_default();
+    let ascii_arg: String = arg_str
+        .chars()
+        .map(|c| {
+            if c.is_ascii() && c != '\r' && c != '\n' {
+                c.to_string()
+            } else {
+                format!("\\u{:04x}", c as u32)
+            }
+        })
+        .collect();
+
+    let download_res = client
+        .post("https://content.dropboxapi.com/2/files/download")
+        .bearer_auth(&access_token)
+        .header("Dropbox-API-Arg", &ascii_arg)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau téléchargement Dropbox : {}", e))?;
+
+    if !download_res.status().is_success() {
+        let err_text = download_res.text().await.unwrap_or_default();
+        return Err(format!(
+            "Aucune sauvegarde distante trouvée sur Dropbox pour '{}' : {}",
+            game_title, err_text
+        ));
+    }
+
+    let mut remote_system_time = std::time::SystemTime::now();
+    if let Some(res_header) = download_res.headers().get("Dropbox-API-Result") {
+        if let Ok(res_str) = res_header.to_str() {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(res_str) {
+                if let Some(client_modified) = json.get("client_modified").and_then(|v| v.as_str()) {
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(client_modified) {
+                        remote_system_time = std::time::SystemTime::from(dt);
+                    }
+                } else if let Some(server_modified) = json.get("server_modified").and_then(|v| v.as_str()) {
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(server_modified) {
+                        remote_system_time = std::time::SystemTime::from(dt);
+                    }
+                }
+            }
+        }
+    }
+
+    let zip_bytes = download_res
+        .bytes()
+        .await
+        .map_err(|e| format!("Erreur lecture octets ZIP Dropbox : {}", e))?
+        .to_vec();
+
+    Ok((zip_bytes, remote_system_time))
+}
+
+async fn download_from_proton_drive(
+    client: &reqwest::Client,
+    token: &str,
+    file_name: &str,
+    game_title: &str,
+) -> Result<(Vec<u8>, std::time::SystemTime), String> {
+    // 1. Détection prioritaire du dossier synchronisé Proton Drive local
+    let local_proton_base = if cfg!(target_os = "windows") {
+        std::env::var("USERPROFILE").ok().map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
+    } else {
+        std::env::var("HOME").ok().map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
+    };
+
+    if let Some(base) = local_proton_base {
+        let save_file = base.join("hydra-save-companion").join(file_name);
+        if save_file.exists() {
+            let metadata = fs::metadata(&save_file)
+                .map_err(|e| format!("Erreur lecture métadonnées Proton Drive : {}", e))?;
+            let modified = metadata.modified().unwrap_or_else(|_| std::time::SystemTime::now());
+            let bytes = fs::read(&save_file)
+                .map_err(|e| format!("Erreur lecture fichier Proton Drive local : {}", e))?;
+            return Ok((bytes, modified));
+        }
+    }
+
+    // 2. Si non trouvé localement, vérification via l'API
+    let access_token = get_valid_access_token(client, token, Some("proton-drive")).await?;
+    if access_token.is_empty() {
+        return Err(format!(
+            "Aucune sauvegarde locale trouvée dans le dossier Proton Drive pour '{}' et jeton d'accès absent.",
+            game_title
+        ));
+    }
+
+    Err(format!(
+        "Sauvegarde introuvable dans le dossier local Proton Drive pour '{}'. Veuillez vérifier que le fichier '{}.zip' est synchronisé sur votre machine.",
+        game_title, file_name
+    ))
+}
+
+fn restore_save_from_zip(
+    zip_bytes: Vec<u8>,
+    save_path: &str,
+    remote_time: std::time::SystemTime,
+) -> Result<(), String> {
+    let target_path = Path::new(save_path);
 
     if target_path.exists() {
         if target_path.is_file() {
@@ -389,7 +575,6 @@ pub async fn download_game_save_from_drive(
                 }
             }
 
-            // Écriture du fichier dans un bloc séparé pour qu'il soit fermé (drop) immédiatement après
             {
                 let mut outfile = fs::File::create(&out_path)
                     .map_err(|e| format!("Erreur création fichier local : {}", e))?;
@@ -398,14 +583,12 @@ pub async fn download_game_save_from_drive(
                     .map_err(|e| format!("Erreur écriture fichier local : {}", e))?;
             }
 
-            // Application de la date maintenant que le fichier est fermé sur le disque
             if let Ok(file_handle) = fs::File::options().write(true).open(&out_path) {
-                let _ = file_handle.set_modified(drive_system_time);
+                let _ = file_handle.set_modified(remote_time);
             }
         }
     }
 
-    // Appliquer également la date exacte de Google Drive au dossier cible (ou au parent si c'est un fichier unique)
     let folder_to_touch = if is_single_file_target {
         target_path.parent()
     } else {
@@ -415,10 +598,51 @@ pub async fn download_game_save_from_drive(
     if let Some(p) = folder_to_touch {
         if p.exists() {
             if let Ok(folder_file) = fs::File::open(p) {
-                let _ = folder_file.set_modified(drive_system_time);
+                let _ = folder_file.set_modified(remote_time);
             }
         }
     }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn download_game_save_from_drive(
+    token: String,
+    game_title: String,
+    save_path: String,
+    provider: Option<String>,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let provider_name = provider
+        .as_deref()
+        .unwrap_or("google-drive")
+        .to_lowercase();
+
+    let file_name = format!(
+        "{}.zip",
+        game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
+    );
+
+    let (zip_bytes, remote_system_time) = match provider_name.as_str() {
+        "google-drive" | "gdrive" | "google" => {
+            download_from_google_drive(&client, &token, &file_name, &game_title).await?
+        }
+        "dropbox" => {
+            download_from_dropbox(&client, &token, &file_name, &game_title).await?
+        }
+        "proton-drive" | "proton" => {
+            download_from_proton_drive(&client, &token, &file_name, &game_title).await?
+        }
+        other => {
+            return Err(format!(
+                "Fournisseur cloud '{}' non supporté pour le téléchargement.",
+                other
+            ))
+        }
+    };
+
+    restore_save_from_zip(zip_bytes, &save_path, remote_system_time)?;
 
     Ok(format!(
         "Sauvegarde de '{}' restaurée avec succès !",

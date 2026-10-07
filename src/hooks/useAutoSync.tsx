@@ -88,17 +88,22 @@ export function useAutoDownloadSaves() {
           return;
         }
 
-        const storedToken = localStorage.getItem("gdrive_token");
+        const storedToken =
+          localStorage.getItem("cloud_token") ||
+          localStorage.getItem("gdrive_token");
         if (!storedToken) return;
 
         for (const game of games) {
           if (!game.savePath || !game.localPathExists) continue;
 
           try {
+            const provider =
+              localStorage.getItem("cloud_provider") || "google-drive";
             const syncStatus = await invoke<any>("check_game_sync_status", {
               token: storedToken,
               gameTitle: game.title,
               savePath: game.savePath,
+              provider,
             });
 
             if (syncStatus.status === "CloudNewer") {

@@ -1,5 +1,4 @@
 use chrono::{DateTime, Local};
-use std::fs;
 use std::path::Path;
 
 use crate::funcs::cloud::get_or_create_drive_folder;
@@ -12,6 +11,8 @@ use crate::funcs::ludusavi::resolve_path_pattern;
 use crate::models::save::SaveInfo;
 use crate::models::sync::SyncStatusResult;
 
+use reqwest;
+use serde_json::Value;
 #[tauri::command]
 pub fn get_game_save_info(
     app_id: Option<String>,
@@ -178,13 +179,17 @@ pub fn get_game_save_info(
         last_modified: None,
     }
 }
+
 #[tauri::command]
 pub async fn check_game_sync_status(
     token: String,
     game_title: String,
     save_path: String,
+    provider: Option<String>,
 ) -> Result<SyncStatusResult, String> {
     use chrono::{DateTime, Local, Timelike, Utc};
+
+    let provider_name = provider.as_deref().unwrap_or("google-drive").to_lowercase();
 
     let path = Path::new(&save_path);
 
@@ -202,14 +207,31 @@ pub async fn check_game_sync_status(
         None
     };
 
-    let client = reqwest::Client::new();
-    let access_token = get_valid_access_token(&client, &token).await?;
-    let folder_id = get_or_create_drive_folder(&client, &token).await?;
-
     let file_name = format!(
         "{}.zip",
         game_title.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
     );
+
+    match provider_name.as_str() {
+        "google-drive" | "gdrive" | "google" => {
+            check_sync_google_drive(token, file_name, local_modified_info).await
+        }
+        "dropbox" => check_sync_dropbox(token, file_name, local_modified_info).await,
+        "proton-drive" | "proton" => check_sync_proton_drive(file_name, local_modified_info).await,
+        other => Err(format!("Provider '{}' non supporté", other)),
+    }
+}
+
+async fn check_sync_google_drive(
+    token: String,
+    file_name: String,
+    local_modified_info: Option<(chrono::DateTime<chrono::Utc>, String)>,
+) -> Result<SyncStatusResult, String> {
+    use chrono::{DateTime, Local, Timelike, Utc};
+
+    let client = reqwest::Client::new();
+    let access_token = get_valid_access_token(&client, &token, Some("google-drive")).await?;
+    let folder_id = get_or_create_drive_folder(&client, &token, Some("google-drive")).await?;
 
     let query = format!(
         "name = '{}' and mimeType = 'application/zip' and trashed = false and '{}' in parents",
@@ -226,21 +248,19 @@ pub async fn check_game_sync_status(
         .bearer_auth(&access_token)
         .send()
         .await
-        .map_err(|e| format!("Erreur réseau vérification sync : {}", e))?;
+        .map_err(|e| format!("Erreur réseau vérification sync (Google Drive) : {}", e))?;
 
     let status = res.status();
-    let err_text = res.text().await.unwrap_or_default();
+    let body = res.text().await.unwrap_or_default();
 
     if !status.is_success() {
-        return Err(format!("Erreur API Google : {}", err_text));
+        return Err(format!("Erreur API Google Drive : {}", body));
     }
 
     let json: serde_json::Value =
-        serde_json::from_str(&err_text).map_err(|e| format!("Erreur parsing JSON : {}", e))?;
+        serde_json::from_str(&body).map_err(|e| format!("Erreur parsing JSON : {}", e))?;
 
-    let files = json.get("files").and_then(|f| f.as_array());
-
-    if let Some(files_array) = files {
+    if let Some(files_array) = json.get("files").and_then(|f| f.as_array()) {
         if let Some(file) = files_array.first() {
             let cloud_modified_utc = file
                 .get("modifiedTime")
@@ -250,48 +270,20 @@ pub async fn check_game_sync_status(
                     let utc = dt.with_timezone(&Utc);
                     utc.with_second(0).unwrap().with_nanosecond(0).unwrap()
                 })
-                .unwrap_or_else(|| Utc::now());
+                .unwrap_or_else(Utc::now);
 
-            let cloud_in_zone = cloud_modified_utc.with_timezone(&Local);
-            let cloud_str = cloud_in_zone.format("%d/%m/%Y %H:%M").to_string();
+            let cloud_str = cloud_modified_utc
+                .with_timezone(&Local)
+                .format("%d/%m/%Y %H:%M")
+                .to_string();
 
-            let (local_utc, local_str) = match local_modified_info {
-                Some(info) => info,
-                None => {
-                    return Ok(SyncStatusResult {
-                        status: "CloudNewer".to_string(),
-                        localTime: "Aucune".to_string(),
-                        cloudTime: cloud_str,
-                    });
-                }
-            };
-
-            if local_utc > cloud_modified_utc {
-                return Ok(SyncStatusResult {
-                    status: "LocalNewer".to_string(),
-                    localTime: local_str,
-                    cloudTime: cloud_str,
-                });
-            } else if cloud_modified_utc > local_utc {
-                return Ok(SyncStatusResult {
-                    status: "CloudNewer".to_string(),
-                    localTime: local_str,
-                    cloudTime: cloud_str,
-                });
-            } else {
-                return Ok(SyncStatusResult {
-                    status: "UpToDate".to_string(),
-                    localTime: local_str,
-                    cloudTime: cloud_str,
-                });
-            }
+            return compare_and_build_result(local_modified_info, cloud_modified_utc, cloud_str);
         }
     }
 
     let local_str = local_modified_info
-        .map(|(_, str_val)| str_val)
+        .map(|(_, s)| s)
         .unwrap_or_else(|| "Jamais".to_string());
-
     Ok(SyncStatusResult {
         status: "NotFound".to_string(),
         localTime: local_str,
@@ -299,8 +291,141 @@ pub async fn check_game_sync_status(
     })
 }
 
-use reqwest;
-use serde_json::Value;
+async fn check_sync_dropbox(
+    token: String,
+    file_name: String,
+    local_modified_info: Option<(chrono::DateTime<chrono::Utc>, String)>,
+) -> Result<SyncStatusResult, String> {
+    use chrono::{DateTime, Local, Timelike, Utc};
+
+    let client = reqwest::Client::new();
+    let access_token = get_valid_access_token(&client, &token, Some("dropbox")).await?;
+
+    let dropbox_path = format!("/hydra-save-companion/{}", file_name);
+    let body = serde_json::json!({ "path": dropbox_path });
+
+    let res = client
+        .post("https://api.dropboxapi.com/2/files/get_metadata")
+        .bearer_auth(&access_token)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau vérification sync (Dropbox) : {}", e))?;
+
+    let http_status = res.status();
+    let body_text = res.text().await.unwrap_or_default();
+
+    // 409 means path not found in Dropbox API
+    if http_status.as_u16() == 409 || !http_status.is_success() {
+        let local_str = local_modified_info
+            .map(|(_, s)| s)
+            .unwrap_or_else(|| "Jamais".to_string());
+        return Ok(SyncStatusResult {
+            status: "NotFound".to_string(),
+            localTime: local_str,
+            cloudTime: "Jamais".to_string(),
+        });
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&body_text)
+        .map_err(|e| format!("Erreur parsing JSON Dropbox : {}", e))?;
+
+    let cloud_modified_utc = json
+        .get("server_modified")
+        .or_else(|| json.get("client_modified"))
+        .and_then(|v| v.as_str())
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| {
+            let utc = dt.with_timezone(&Utc);
+            utc.with_second(0).unwrap().with_nanosecond(0).unwrap()
+        })
+        .unwrap_or_else(Utc::now);
+
+    let cloud_str = cloud_modified_utc
+        .with_timezone(&Local)
+        .format("%d/%m/%Y %H:%M")
+        .to_string();
+
+    compare_and_build_result(local_modified_info, cloud_modified_utc, cloud_str)
+}
+
+async fn check_sync_proton_drive(
+    file_name: String,
+    local_modified_info: Option<(chrono::DateTime<chrono::Utc>, String)>,
+) -> Result<SyncStatusResult, String> {
+    use chrono::{DateTime, Local, Timelike, Utc};
+    use std::fs;
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let proton_file = std::path::PathBuf::from(&home)
+        .join("Proton Drive")
+        .join("hydra-save-companion")
+        .join(&file_name);
+
+    if !proton_file.exists() {
+        let local_str = local_modified_info
+            .map(|(_, s)| s)
+            .unwrap_or_else(|| "Jamais".to_string());
+        return Ok(SyncStatusResult {
+            status: "NotFound".to_string(),
+            localTime: local_str,
+            cloudTime: "Jamais".to_string(),
+        });
+    }
+
+    let cloud_modified_utc = fs::metadata(&proton_file)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .map(|st| {
+            let utc: DateTime<Utc> = st.into();
+            utc.with_second(0).unwrap().with_nanosecond(0).unwrap()
+        })
+        .unwrap_or_else(Utc::now);
+
+    let cloud_str = cloud_modified_utc
+        .with_timezone(&Local)
+        .format("%d/%m/%Y %H:%M")
+        .to_string();
+
+    compare_and_build_result(local_modified_info, cloud_modified_utc, cloud_str)
+}
+
+fn compare_and_build_result(
+    local_modified_info: Option<(chrono::DateTime<chrono::Utc>, String)>,
+    cloud_modified_utc: chrono::DateTime<chrono::Utc>,
+    cloud_str: String,
+) -> Result<SyncStatusResult, String> {
+    let (local_utc, local_str) = match local_modified_info {
+        Some(info) => info,
+        None => {
+            return Ok(SyncStatusResult {
+                status: "CloudNewer".to_string(),
+                localTime: "Aucune".to_string(),
+                cloudTime: cloud_str,
+            });
+        }
+    };
+
+    if local_utc > cloud_modified_utc {
+        Ok(SyncStatusResult {
+            status: "LocalNewer".to_string(),
+            localTime: local_str,
+            cloudTime: cloud_str,
+        })
+    } else if cloud_modified_utc > local_utc {
+        Ok(SyncStatusResult {
+            status: "CloudNewer".to_string(),
+            localTime: local_str,
+            cloudTime: cloud_str,
+        })
+    } else {
+        Ok(SyncStatusResult {
+            status: "UpToDate".to_string(),
+            localTime: local_str,
+            cloudTime: cloud_str,
+        })
+    }
+}
 
 #[tauri::command]
 pub async fn get_steam_cover(app_id: Option<i64>) -> Result<String, String> {

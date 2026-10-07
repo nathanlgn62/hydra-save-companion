@@ -24,9 +24,9 @@ export default function CloudProviderModal({
     {
       id: "dropbox",
       name: "Dropbox",
-      available: false,
+      available: true,
       color:
-        "text-indigo-400/50 border-indigo-500/10 opacity-60 cursor-not-allowed",
+        "text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/10 cursor-pointer",
     },
     {
       id: "mega",
@@ -37,9 +37,9 @@ export default function CloudProviderModal({
     {
       id: "proton-drive",
       name: "Proton Drive",
-      available: false,
+      available: true,
       color:
-        "text-purple-400/50 border-purple-500/10 opacity-60 cursor-not-allowed",
+        "text-purple-400 border-purple-500/20 hover:bg-purple-500/10 cursor-pointer",
     },
   ];
 

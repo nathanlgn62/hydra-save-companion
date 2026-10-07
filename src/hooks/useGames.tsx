@@ -24,7 +24,9 @@ export function useGames() {
     queryKey: ["games"],
     queryFn: async () => {
       const installedGames = await invoke<HydraGame[]>("get_installed_games");
-      const storedToken = localStorage.getItem("gdrive_token");
+      const storedToken =
+        localStorage.getItem("cloud_token") ||
+        localStorage.getItem("gdrive_token");
 
       const gamesWithSaves = await Promise.all(
         installedGames.map(async (game) => {
@@ -45,10 +47,13 @@ export function useGames() {
           let remoteDate = "Jamais";
           if (storedToken && saveInfo?.resolvedPath) {
             try {
+              const provider =
+                localStorage.getItem("cloud_provider") || "google-drive";
               const syncStatus = await invoke<any>("check_game_sync_status", {
                 token: storedToken,
                 gameTitle: game.title,
                 savePath: saveInfo.resolvedPath,
+                provider,
               });
 
               if (syncStatus.status === "UpToDate")
@@ -108,12 +113,16 @@ export function useUploadSave() {
       gameTitle: string;
       savePath: string;
     }) => {
-      const storedToken = localStorage.getItem("gdrive_token");
-      if (!storedToken) {
-        showToast("Non connecté à Google Drive", "error");
+      const storedToken =
+        localStorage.getItem("cloud_token") ||
+        localStorage.getItem("gdrive_token");
+      const provider = localStorage.getItem("cloud_provider") || "google-drive";
+
+      if (!storedToken && provider !== "proton-drive") {
+        showToast("Non connecté à un service Cloud", "error");
         desktopNotification(
           "Synchronisation automatique",
-          "Non connecté à Google Drive",
+          "Non connecté à un service Cloud",
         );
         return;
       }
@@ -128,9 +137,10 @@ export function useUploadSave() {
       );
 
       return await invoke<string>("upload_game_save_to_drive", {
-        token: storedToken,
+        token: storedToken || "",
         gameTitle,
         savePath,
+        provider,
       });
     },
     onSuccess: () => {
@@ -158,21 +168,26 @@ export function useDownloadSave() {
 
   return useMutation({
     mutationFn: async ({ gameTitle, savePath }: SyncPayload) => {
-      const storedToken = localStorage.getItem("gdrive_token");
-      if (!storedToken) {
-        showToast("Non connecté à Google Drive", "error");
+      const storedToken =
+        localStorage.getItem("cloud_token") ||
+        localStorage.getItem("gdrive_token");
+      const provider = localStorage.getItem("cloud_provider") || "google-drive";
+
+      if (!storedToken && provider !== "proton-drive") {
+        showToast("Non connecté à un service Cloud", "error");
         await desktopNotification(
           "Synchronisation automatique",
-          "Non connecté à Google Drive",
+          "Non connecté à un service Cloud",
         );
         return;
       }
 
-      // Appel de la commande Rust Tauri 'download_game_save'
+      // Appel de la commande Rust Tauri 'download_game_save_from_drive'
       const response = await invoke<string>("download_game_save_from_drive", {
-        token: storedToken,
+        token: storedToken || "",
         gameTitle,
         savePath,
+        provider,
       });
 
       return response;

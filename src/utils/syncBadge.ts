@@ -82,6 +82,15 @@ export function getSyncBadgeConfig(
     };
   }
 
+  if (!localDate) {
+    return {
+      label: "Aucune sauvegarde",
+      variant: "neutral",
+      Icon: Cloud,
+      description: "Aucun fichier local n'a été détecté.",
+    };
+  }
+
   if (!remoteDate) {
     return {
       label: "Jamais sync",
