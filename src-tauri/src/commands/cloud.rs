@@ -48,7 +48,7 @@ fn create_save_zip(path: &Path) -> Result<Vec<u8>, String> {
 async fn upload_to_google_drive(
     client: &reqwest::Client,
     token: &str,
-    file_name: &str,
+    game_title: &str,
     zip_buffer: Vec<u8>,
     local_modified_str: &str,
     local_rfc3339: &str,
@@ -56,49 +56,21 @@ async fn upload_to_google_drive(
     let access_token = get_valid_access_token(client, token, Some("google-drive")).await?;
     let folder_id = get_or_create_drive_folder(client, token, Some("google-drive")).await?;
 
-    let search_query = format!(
-        "name = '{}' and '{}' in parents and trashed = false",
-        file_name.replace('\'', "\\'"),
-        folder_id
-    );
+    // On s'assure de nettoyer le titre et de n'ajouter .zip qu'une seule fois
+    let clean_title = game_title
+        .replace(".zip", "")
+        .replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+    let file_name = format!("{}.zip", clean_title);
 
-    let search_res = client
-        .get("https://www.googleapis.com/drive/v3/files")
-        .bearer_auth(&access_token)
-        .query(&[("q", search_query.as_str()), ("fields", "files(id)")])
-        .send()
-        .await
-        .map_err(|e| format!("Erreur recherche ancien fichier Google Drive : {}", e))?;
-
-    let existing_file_id = if search_res.status().is_success() {
-        let json = search_res.json::<serde_json::Value>().await.ok();
-        json.and_then(|j| {
-            j["files"]
-                .as_array()
-                .and_then(|files| files.first())
-                .and_then(|f| f["id"].as_str().map(|s| s.to_string()))
-        })
-    } else {
-        None
-    };
-
-    let metadata = match existing_file_id {
-        Some(_) => serde_json::json!({
-            "name": file_name,
-            "modifiedTime": local_rfc3339,
-            "appProperties": {
-                "localModified": local_modified_str
-            }
-        }),
-        None => serde_json::json!({
-            "name": file_name,
-            "parents": [folder_id],
-            "modifiedTime": local_rfc3339,
-            "appProperties": {
-                "localModified": local_modified_str
-            }
-        }),
-    };
+    // 1. CRÉATION DE LA NOUVELLE SAUVEGARDE (POST)
+    let metadata = serde_json::json!({
+        "name": file_name,
+        "parents": [folder_id],
+        "modifiedTime": local_rfc3339,
+        "appProperties": {
+            "localModified": local_modified_str
+        }
+    });
 
     let multipart = reqwest::multipart::Form::new()
         .part(
@@ -110,45 +82,75 @@ async fn upload_to_google_drive(
         .part(
             "file",
             reqwest::multipart::Part::bytes(zip_buffer)
-                .file_name(file_name.to_string())
+                .file_name(file_name.clone())
                 .mime_str("application/zip")
                 .map_err(|e| e.to_string())?,
         );
 
-    let (upload_url, method) = match existing_file_id {
-        Some(id) => (
-            format!(
-                "https://www.googleapis.com/upload/drive/v3/files/{}?uploadType=multipart&setModifiedDate=true",
-                id
-            ),
-            reqwest::Method::PATCH,
-        ),
-        None => (
-            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&setModifiedDate=true".to_string(),
-            reqwest::Method::POST,
-        ),
-    };
+    let upload_url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&setModifiedDate=true";
 
     let upload_res = client
-        .request(method, &upload_url)
+        .post(upload_url)
         .bearer_auth(&access_token)
         .multipart(multipart)
         .send()
         .await
         .map_err(|e| format!("Erreur réseau upload Google Drive : {}", e))?;
 
-    if upload_res.status().is_success() {
-        Ok(format!(
-            "Archive '{}' uploadée avec succès sur Google Drive !",
-            file_name
-        ))
-    } else {
+    if !upload_res.status().is_success() {
         let err_text = upload_res.text().await.unwrap_or_default();
-        Err(format!(
+        return Err(format!(
             "Erreur lors de l'upload Google Drive : {}",
             err_text
-        ))
+        ));
     }
+
+    // 2. NETTOYAGE : GARDER UNIQUEMENT LES 5 DERNIÈRES SAUVEGARDES PORTANT CE NOM
+    let search_query = format!(
+        "name = '{}' and '{}' in parents and trashed = false",
+        file_name.replace('\'', "\\'"),
+        folder_id
+    );
+
+    let search_res = client
+        .get("https://www.googleapis.com/drive/v3/files")
+        .bearer_auth(&access_token)
+        .query(&[
+            ("q", search_query.as_str()),
+            ("fields", "files(id, name, createdTime)"),
+            ("orderBy", "createdTime desc"),
+        ])
+        .send()
+        .await;
+
+    if let Ok(res) = search_res {
+        if res.status().is_success() {
+            if let Ok(json) = res.json::<serde_json::Value>().await {
+                if let Some(files) = json["files"].as_array() {
+                    if files.len() > 5 {
+                        for old_file in &files[5..] {
+                            if let Some(file_id) = old_file["id"].as_str() {
+                                let delete_url = format!(
+                                    "https://www.googleapis.com/drive/v3/files/{}",
+                                    file_id
+                                );
+                                let _ = client
+                                    .delete(&delete_url)
+                                    .bearer_auth(&access_token)
+                                    .send()
+                                    .await;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(format!(
+        "Archive '{}' uploadée avec succès sur Google Drive !",
+        file_name
+    ))
 }
 
 async fn upload_to_dropbox(
@@ -453,11 +455,14 @@ async fn download_from_dropbox(
     if let Some(res_header) = download_res.headers().get("Dropbox-API-Result") {
         if let Ok(res_str) = res_header.to_str() {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(res_str) {
-                if let Some(client_modified) = json.get("client_modified").and_then(|v| v.as_str()) {
+                if let Some(client_modified) = json.get("client_modified").and_then(|v| v.as_str())
+                {
                     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(client_modified) {
                         remote_system_time = std::time::SystemTime::from(dt);
                     }
-                } else if let Some(server_modified) = json.get("server_modified").and_then(|v| v.as_str()) {
+                } else if let Some(server_modified) =
+                    json.get("server_modified").and_then(|v| v.as_str())
+                {
                     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(server_modified) {
                         remote_system_time = std::time::SystemTime::from(dt);
                     }
@@ -483,9 +488,13 @@ async fn download_from_proton_drive(
 ) -> Result<(Vec<u8>, std::time::SystemTime), String> {
     // 1. Détection prioritaire du dossier synchronisé Proton Drive local
     let local_proton_base = if cfg!(target_os = "windows") {
-        std::env::var("USERPROFILE").ok().map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
+        std::env::var("USERPROFILE")
+            .ok()
+            .map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
     } else {
-        std::env::var("HOME").ok().map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
+        std::env::var("HOME")
+            .ok()
+            .map(|p| std::path::PathBuf::from(p).join("Proton Drive"))
     };
 
     if let Some(base) = local_proton_base {
@@ -493,7 +502,9 @@ async fn download_from_proton_drive(
         if save_file.exists() {
             let metadata = fs::metadata(&save_file)
                 .map_err(|e| format!("Erreur lecture métadonnées Proton Drive : {}", e))?;
-            let modified = metadata.modified().unwrap_or_else(|_| std::time::SystemTime::now());
+            let modified = metadata
+                .modified()
+                .unwrap_or_else(|_| std::time::SystemTime::now());
             let bytes = fs::read(&save_file)
                 .map_err(|e| format!("Erreur lecture fichier Proton Drive local : {}", e))?;
             return Ok((bytes, modified));
@@ -614,10 +625,7 @@ pub async fn download_game_save_from_drive(
     provider: Option<String>,
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
-    let provider_name = provider
-        .as_deref()
-        .unwrap_or("google-drive")
-        .to_lowercase();
+    let provider_name = provider.as_deref().unwrap_or("google-drive").to_lowercase();
 
     let file_name = format!(
         "{}.zip",
@@ -628,9 +636,7 @@ pub async fn download_game_save_from_drive(
         "google-drive" | "gdrive" | "google" => {
             download_from_google_drive(&client, &token, &file_name, &game_title).await?
         }
-        "dropbox" => {
-            download_from_dropbox(&client, &token, &file_name, &game_title).await?
-        }
+        "dropbox" => download_from_dropbox(&client, &token, &file_name, &game_title).await?,
         "proton-drive" | "proton" => {
             download_from_proton_drive(&client, &token, &file_name, &game_title).await?
         }
