@@ -48,10 +48,8 @@ export function useGames() {
             }).catch(() => null),
             invoke<string>("get_steam_cover", {
               appId: game.objectId ? Number(game.objectId) : null,
-            }).catch(
-              () =>
-                `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.objectId}/library_600x900_2x.jpg`,
-            ),
+              title: game.title,
+            }).catch(() => ""),
           ]);
 
           let remoteDate = "Jamais";

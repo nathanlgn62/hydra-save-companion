@@ -10,7 +10,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useDownloadSave,
   useGameSyncStatus,
@@ -32,6 +32,11 @@ interface GameCardProps {
 export default function GameCard({ game }: GameCardProps) {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isBackupsOpen, setIsBackupsOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [game.cover]);
 
   const syncMutation = useUploadSave();
   const downloadMutation = useDownloadSave();
@@ -92,29 +97,28 @@ export default function GameCard({ game }: GameCardProps) {
 
   return (
     <>
-      <div className="w-full bg-slate-900/90 border border-slate-800/80 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 flex flex-col group">
-        <div className="relative w-full aspect-[2/3] bg-slate-950 flex items-center justify-center overflow-hidden border-b border-slate-800/60">
-          {game.cover ? (
+      <div className="w-full bg-slate-900/95 border border-slate-800/90 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 flex flex-col group">
+        {/* Zone jaquette au ratio 2:3 (format officiel bibliothèque Steam & Hydra Launcher) */}
+        <div className="relative w-full aspect-[2/3] bg-slate-950 flex items-center justify-center overflow-hidden">
+          {game.cover && !imgError ? (
             <>
-              {/* Fond ambiant flouté pour garantir un remplissage élégant sans jamais rogner l'image */}
-              <img
-                src={game.cover}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover blur-lg opacity-25 scale-110 pointer-events-none"
-                aria-hidden="true"
-              />
-              {/* Jaquette entière visible à 100% sans aucun rognage, exactement comme sur Steam */}
+              {/* Jaquette officielle remplissant l'espace (object-cover) avec zoom subtil au survol */}
               <img
                 src={game.cover}
                 alt={game.title}
-                className="relative z-10 w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
+                onError={() => setImgError(true)}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                 loading="lazy"
               />
+              {/* Dégradé supérieur pour détacher le badge */}
+              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/80 via-black/30 to-transparent pointer-events-none z-10" />
+              {/* Dégradé inférieur pour une transition douce vers les actions */}
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent pointer-events-none z-10" />
             </>
           ) : (
             <div className="relative z-10 flex flex-col items-center gap-3 p-4 text-center">
-              <div className="w-12 h-12 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-slate-400 group-hover:border-indigo-500/50 group-hover:text-indigo-400 shadow-inner transition-colors">
-                <Gamepad size={24} />
+              <div className="w-14 h-14 rounded-2xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-slate-400 group-hover:border-indigo-500/50 group-hover:text-indigo-400 shadow-inner transition-colors">
+                <Gamepad size={28} />
               </div>
               <span className="text-xs font-medium text-slate-300 line-clamp-2 leading-snug px-2 drop-shadow-md">
                 {game.title}
@@ -122,9 +126,7 @@ export default function GameCard({ game }: GameCardProps) {
             </div>
           )}
 
-          {/* Dégradé supérieur et d'angle pour détacher le badge quel que soit le visuel de la jaquette */}
-          <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none z-10" />
-
+          {/* Badge d'état de synchronisation en haut à droite */}
           <div className="absolute top-2.5 right-2.5 z-20">
             <SyncBadge config={badgeConfig} />
           </div>

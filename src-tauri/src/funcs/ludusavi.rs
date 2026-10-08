@@ -5,10 +5,7 @@ use std::sync::OnceLock;
 
 use crate::models::ludusavi::LudusaviManifest;
 
-#[cfg(target_os = "windows")]
-use winreg::enums::*;
-#[cfg(target_os = "windows")]
-use winreg::RegKey;
+
 
 const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml";
@@ -84,9 +81,8 @@ pub fn resolve_ludusavi_placeholders(path_str: &str, app_id: Option<&str>) -> St
         resolved = resolved.replace("<winProgramData>", r"C:\ProgramData");
 
         if resolved.contains("<storeUserId>") || resolved.contains("<steamUser>") {
-            let active_steam_id = get_active_steam_user_id().unwrap_or_else(|| "*".to_string());
-            resolved = resolved.replace("<storeUserId>", &active_steam_id);
-            resolved = resolved.replace("<steamUser>", &active_steam_id);
+            resolved = resolved.replace("<storeUserId>", "*");
+            resolved = resolved.replace("<steamUser>", "*");
         }
     }
 
