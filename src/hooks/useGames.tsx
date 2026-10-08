@@ -2,24 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useMemo } from "react";
 import { useToasts } from "../stores/toastStore";
-import { HydraGame } from "../types/game";
+import {
+  GameProcessInfo,
+  HydraGame,
+  RemoteBackupInfo,
+  SaveInfoResponse,
+  SyncPayload,
+  SyncStatusResult,
+} from "../types";
 import { parseSaveDate } from "../utils/date";
 import { useDesktopNotification } from "./useDesktopNotification";
-
 import { useSettings } from "./useSettings";
-
-interface SaveInfoResponse {
-  ludasaviPathExists: boolean;
-  localPathExists: boolean;
-  resolvedPath: string | null;
-  lastModified: string | null;
-}
-
-interface SyncPayload {
-  gameTitle: string;
-  savePath: string;
-  fileId?: string;
-}
 
 // Fetch global de tous les jeux
 export function useGames() {
@@ -61,15 +54,13 @@ export function useGames() {
             ),
           ]);
 
-          console.log("saveInfo", saveInfo);
-
           let remoteDate = "Jamais";
-          let backups: any[] = [];
+          let backups: RemoteBackupInfo[] = [];
           if (storedToken && saveInfo?.resolvedPath) {
             try {
               const provider =
                 localStorage.getItem("cloud_provider") || "google-drive";
-              const syncStatus = await invoke<any>("check_game_sync_status", {
+              const syncStatus = await invoke<SyncStatusResult>("check_game_sync_status", {
                 token: storedToken,
                 gameTitle: game.title,
                 savePath: saveInfo.resolvedPath,
@@ -97,17 +88,17 @@ export function useGames() {
             ...game,
             lastLocalSave: saveInfo?.lastModified ?? "Jamais",
             lastRemoteSave: remoteDate,
-            savePath: saveInfo?.resolvedPath,
+            savePath: saveInfo?.resolvedPath ?? null,
             localPathExists: saveInfo?.localPathExists,
             ludasaviPathExists: saveInfo?.ludasaviPathExists,
-            cover: coverUrl,
+            cover: (coverUrl && coverUrl.trim().length > 0) ? coverUrl : game.iconUrl,
             backups,
           } as HydraGame;
         }),
       );
 
       // Notification au backend Tauri
-      const monitoredPayload = gamesWithSaves.map((game) => ({
+      const monitoredPayload: GameProcessInfo[] = gamesWithSaves.map((game) => ({
         title: game.title,
         executable_name:
           (game.executablePath || game.title).split(/[/\\]/).pop() ||
@@ -115,8 +106,6 @@ export function useGames() {
         save_path: game.savePath ?? null,
       }));
       await invoke("set_monitored_games", { games: monitoredPayload });
-
-      console.log(gamesWithSaves);
 
       return gamesWithSaves;
     },

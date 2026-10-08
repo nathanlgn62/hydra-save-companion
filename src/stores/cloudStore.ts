@@ -1,11 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { getStoredStatus } from "../utils/storage";
+import { CloudStatus } from "../types";
 
-type CloudListener = (status: {
-  isConnected: boolean;
-  provider: string | null;
-}) => void;
+type CloudListener = (status: CloudStatus) => void;
 
 const listeners = new Set<CloudListener>();
 

@@ -1,5 +1,6 @@
 import { AlertTriangle, Send, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useModalAnimation } from "../../hooks/useModalAnimation";
 
 interface GameReportModalProps {
   gameTitle: string;
@@ -20,22 +21,16 @@ export default function GameReportModal({
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
 
-  // Gestion de la touche Échap
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        handleClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
-
-  const handleClose = () => {
+  const resetFormAndClose = useCallback(() => {
     setSentSuccess(false);
     setMessage("");
     onClose();
-  };
+  }, [onClose]);
+
+  const { isRendered, isVisible, closeWithAnimation } = useModalAnimation(
+    isOpen,
+    resetFormAndClose,
+  );
 
   const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +52,7 @@ export default function GameReportModal({
 
       setSentSuccess(true);
       setTimeout(() => {
-        handleClose();
+        closeWithAnimation();
       }, 2000);
     } catch (err) {
       console.error("Erreur lors de l'envoi du report :", err);
@@ -66,15 +61,21 @@ export default function GameReportModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isRendered) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn"
-      onClick={handleClose}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-200 ease-out ${
+        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+      onClick={closeWithAnimation}
     >
       <div
-        className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col"
+        className={`bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col transition-all duration-200 ease-out transform ${
+          isVisible
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-3"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
@@ -91,7 +92,7 @@ export default function GameReportModal({
           </div>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={closeWithAnimation}
             className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -130,8 +131,8 @@ export default function GameReportModal({
             <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
               <button
                 type="button"
-                onClick={handleClose}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                onClick={closeWithAnimation}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Annuler
               </button>

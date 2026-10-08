@@ -1,4 +1,4 @@
-import { SyncBadgeConfig, SyncBadgeVariant } from "../utils/syncBadge";
+import { SyncBadgeConfig, SyncBadgeVariant } from "../types";
 
 const variantStyles: Record<SyncBadgeVariant, string> = {
   neutral: "bg-slate-800/80 border-slate-700/60 text-slate-400",

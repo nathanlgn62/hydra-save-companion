@@ -1,11 +1,21 @@
-import { Cloud, Download, History, Loader2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  CheckCircle2,
+  Cloud,
+  Download,
+  History,
+  Loader2,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 import { useDownloadSave } from "../../hooks/useGames";
-import { RemoteBackupInfo } from "../../types/game";
+import { useModalAnimation } from "../../hooks/useModalAnimation";
+import { RemoteBackupInfo } from "../../types";
+import { parseSaveDate } from "../../utils/date";
 
 interface GameBackupsModalProps {
   gameTitle: string;
   savePath: string | null;
+  lastLocalSave?: string | null;
   backups: RemoteBackupInfo[];
   isOpen: boolean;
   onClose: () => void;
@@ -14,6 +24,7 @@ interface GameBackupsModalProps {
 export default function GameBackupsModal({
   gameTitle,
   savePath,
+  lastLocalSave,
   backups,
   isOpen,
   onClose,
@@ -21,17 +32,12 @@ export default function GameBackupsModal({
   const downloadMutation = useDownloadSave();
   const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  const { isRendered, isVisible, closeWithAnimation } = useModalAnimation(
+    isOpen,
+    onClose,
+  );
 
-  if (!isOpen) return null;
+  const localTimeMs = parseSaveDate(lastLocalSave);
 
   const handleRestore = (backup: RemoteBackupInfo) => {
     if (!savePath || downloadMutation.isPending) return;
@@ -51,10 +57,22 @@ export default function GameBackupsModal({
     );
   };
 
+  if (!isRendered) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-200 ease-out ${
+        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+      onClick={closeWithAnimation}
+    >
       <div
-        className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+        className={`w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-all duration-200 ease-out transform ${
+          isVisible
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-3"
+        }`}
+        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
@@ -75,7 +93,7 @@ export default function GameBackupsModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWithAnimation}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -91,23 +109,41 @@ export default function GameBackupsModal({
                 Aucune sauvegarde sur le cloud
               </p>
               <p className="text-xs text-slate-500 max-w-xs">
-                Synchronisez vos sauvegardes locales pour qu'elles apparaissent ici.
+                Synchronisez vos sauvegardes locales pour qu'elles apparaissent
+                ici.
               </p>
             </div>
           ) : (
             backups.map((backup, index) => {
               const isRestoring =
-                downloadMutation.isPending && restoringFileId === backup.file_id;
+                downloadMutation.isPending &&
+                restoringFileId === backup.file_id;
+
+              const backupTimeMs = parseSaveDate(backup.modified_time);
+              const isCurrentLocal =
+                Boolean(
+                  localTimeMs &&
+                  backupTimeMs &&
+                  Math.abs(localTimeMs - backupTimeMs) < 60000,
+                ) ||
+                (Boolean(lastLocalSave && backup.modified_time) &&
+                  lastLocalSave === backup.modified_time);
 
               return (
                 <div
                   key={backup.file_id || index}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-600/60 transition-all gap-3"
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all gap-3 ${
+                    isCurrentLocal
+                      ? "bg-emerald-950/20 border-emerald-500/40 shadow-sm shadow-emerald-950/20"
+                      : "bg-slate-800/60 border-slate-700/50 hover:border-slate-600/60"
+                  }`}
                 >
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-medium text-slate-200 truncate">
-                      {backup.name}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-slate-200 truncate">
+                        {backup.name}
+                      </span>
+                    </div>
                     <span className="text-[11px] font-mono text-slate-400 mt-0.5">
                       {backup.modified_time}
                     </span>
@@ -116,18 +152,31 @@ export default function GameBackupsModal({
                   <button
                     type="button"
                     onClick={() => handleRestore(backup)}
-                    disabled={!savePath || downloadMutation.isPending}
-                    title={
-                      !savePath
-                        ? "Dossier local de sauvegarde introuvable"
-                        : "Restaurer cette version"
+                    disabled={
+                      !savePath || downloadMutation.isPending || isCurrentLocal
                     }
-                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-medium text-xs flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-sm shadow-indigo-900/30"
+                    title={
+                      isCurrentLocal
+                        ? "Cette version correspond déjà à votre sauvegarde locale actuelle"
+                        : !savePath
+                          ? "Dossier local de sauvegarde introuvable"
+                          : "Restaurer cette version"
+                    }
+                    className={`px-3 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all shrink-0 ${
+                      isCurrentLocal
+                        ? "bg-slate-800/80 border border-slate-700 text-slate-400 cursor-not-allowed opacity-75"
+                        : "bg-indigo-600 hover:bg-indigo-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 text-white cursor-pointer shadow-sm shadow-indigo-900/30"
+                    }`}
                   >
                     {isRestoring ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Restauration...</span>
+                      </>
+                    ) : isCurrentLocal ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Déjà installée</span>
                       </>
                     ) : (
                       <>
@@ -144,10 +193,13 @@ export default function GameBackupsModal({
 
         {/* Footer */}
         <div className="p-3 bg-slate-950/40 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500">
-          <span>{backups.length} sauvegarde{backups.length > 1 ? "s" : ""} trouvée{backups.length > 1 ? "s" : ""}</span>
+          <span>
+            {backups.length} sauvegarde{backups.length > 1 ? "s" : ""} trouvée
+            {backups.length > 1 ? "s" : ""}
+          </span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWithAnimation}
             className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs"
           >
             Fermer
@@ -157,4 +209,3 @@ export default function GameBackupsModal({
     </div>
   );
 }
-

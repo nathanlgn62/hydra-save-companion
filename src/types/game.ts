@@ -4,6 +4,15 @@ export interface RemoteBackupInfo {
   modified_time: string;
 }
 
+export type SaveStatusFilter =
+  | "all"
+  | "up-to-date"
+  | "local-newer"
+  | "cloud-newer"
+  | "to-download"
+  | "never-synced"
+  | "no-save";
+
 export interface HydraGame {
   title: string;
   objectId: string;
@@ -13,9 +22,20 @@ export interface HydraGame {
   cover?: string;
   lastLocalSave?: string;
   lastRemoteSave?: string;
-  savePath: string;
-  pathExists: boolean;
-  ludasaviPathExists: boolean;
-  localPathExists: boolean;
+  savePath: string | null;
+  pathExists?: boolean;
+  ludasaviPathExists?: boolean;
+  localPathExists?: boolean;
   backups?: RemoteBackupInfo[];
+}
+
+export interface GameProcessInfo {
+  title: string;
+  executable_name: string;
+  save_path: string | null;
+}
+
+export interface GameClosedPayload {
+  title: string;
+  savePath?: string;
 }

@@ -1,7 +1,5 @@
 use crate::models::game::GameProcessInfo;
-
-use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 pub struct ProcessMonitorState {
     pub monitored_games: Mutex<Vec<GameProcessInfo>>,

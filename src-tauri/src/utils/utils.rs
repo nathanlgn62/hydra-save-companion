@@ -15,8 +15,8 @@ pub fn compare_and_build_result(
         None => {
             return Ok(SyncStatusResult {
                 status: "CloudNewer".to_string(),
-                localTime: "Aucune".to_string(),
-                cloudTime: cloud_str,
+                local_time: "Aucune".to_string(),
+                cloud_time: cloud_str,
                 backups,
             });
         }
@@ -25,22 +25,22 @@ pub fn compare_and_build_result(
     if local_utc > cloud_modified_utc {
         Ok(SyncStatusResult {
             status: "LocalNewer".to_string(),
-            localTime: local_str,
-            cloudTime: cloud_str,
+            local_time: local_str,
+            cloud_time: cloud_str,
             backups,
         })
     } else if cloud_modified_utc > local_utc {
         Ok(SyncStatusResult {
             status: "CloudNewer".to_string(),
-            localTime: local_str,
-            cloudTime: cloud_str,
+            local_time: local_str,
+            cloud_time: cloud_str,
             backups,
         })
     } else {
         Ok(SyncStatusResult {
             status: "UpToDate".to_string(),
-            localTime: local_str,
-            cloudTime: cloud_str,
+            local_time: local_str,
+            cloud_time: cloud_str,
             backups,
         })
     }

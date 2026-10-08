@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DriveFileItem {
-    id: String,
-    modified_time: String,
+    pub id: String,
+    pub modified_time: String,
 }
 
-#[derive(Deserialize)]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DriveFileList {
-    files: Vec<DriveFileItem>,
+    pub files: Vec<DriveFileItem>,
 }

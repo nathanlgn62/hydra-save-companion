@@ -91,7 +91,7 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             shop: Some("steam".to_string()),
             executable_path: Some("/tmp/eldenring.exe".to_string()),
             is_deleted: Some(false),
-            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/header.jpg".to_string()),
+            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/library_600x900_2x.jpg".to_string()),
             has_active_steam_import: Some(false),
         },
         HydraGame {
@@ -100,7 +100,7 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             shop: Some("steam".to_string()),
             executable_path: Some("/tmp/hollow_knight.exe".to_string()),
             is_deleted: Some(false),
-            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/367520/header.jpg".to_string()),
+            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/367520/library_600x900_2x.jpg".to_string()),
             has_active_steam_import: Some(false),
         },
         HydraGame {
@@ -109,7 +109,7 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             shop: Some("steam".to_string()),
             executable_path: Some("/tmp/Cyberpunk2077.exe".to_string()),
             is_deleted: Some(false),
-            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg".to_string()),
+            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/library_600x900_2x.jpg".to_string()),
             has_active_steam_import: Some(false),
         },
     ];

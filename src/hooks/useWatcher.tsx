@@ -3,14 +3,10 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { setRunningGame } from "../stores/gameStore";
 import { useToasts } from "../stores/toastStore";
+import { GameClosedPayload } from "../types";
 import { useDesktopNotification } from "./useDesktopNotification";
 import { useUploadSave } from "./useGames";
 import { useSettings } from "./useSettings";
-
-interface GameClosedPayload {
-  title: string;
-  savePath?: string;
-}
 
 export function useWatcher() {
   const queryClient = useQueryClient();

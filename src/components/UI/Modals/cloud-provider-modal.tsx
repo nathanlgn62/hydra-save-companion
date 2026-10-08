@@ -1,4 +1,5 @@
 import { Clock, Cloud, HardDrive, X } from "lucide-react";
+import { useModalAnimation } from "../../../hooks/useModalAnimation";
 
 interface CloudProviderModalProps {
   isOpen: boolean;
@@ -11,7 +12,12 @@ export default function CloudProviderModal({
   onClose,
   onSelectProvider,
 }: CloudProviderModalProps) {
-  if (!isOpen) return null;
+  const { isRendered, isVisible, closeWithAnimation } = useModalAnimation(
+    isOpen,
+    onClose,
+  );
+
+  if (!isRendered) return null;
 
   const providers = [
     {
@@ -44,8 +50,20 @@ export default function CloudProviderModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-200 ease-out ${
+        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+      onClick={closeWithAnimation}
+    >
+      <div
+        className={`bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col transition-all duration-200 ease-out transform ${
+          isVisible
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-3"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
             <Cloud className="w-4 h-4 text-indigo-400" />
@@ -53,7 +71,7 @@ export default function CloudProviderModal({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWithAnimation}
             className="p-1 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -73,7 +91,7 @@ export default function CloudProviderModal({
               onClick={() => {
                 if (provider.available) {
                   onSelectProvider(provider.id);
-                  onClose();
+                  closeWithAnimation();
                 }
               }}
               className={`w-full flex items-center justify-between p-3 rounded-xl border bg-slate-800/50 transition-all ${provider.color}`}
@@ -96,7 +114,7 @@ export default function CloudProviderModal({
         <div className="px-6 py-4 border-t border-slate-800 flex justify-end bg-slate-950/50">
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWithAnimation}
             className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
           >
             Annuler

@@ -1,13 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Store } from "@tauri-apps/plugin-store";
+import { UserSettings } from "../types";
 
-export interface UserSettings {
-  uploadInterval: "afterGameClose" | "manually";
-  downloadInterval: number | "manually";
-  autoStartWithSystem: boolean;
-  desktopNotificationsEnabled?: boolean;
-  demoMode?: boolean;
-}
+export type { UserSettings };
 
 const DEFAULT_SETTINGS: UserSettings = {
   uploadInterval: "afterGameClose",

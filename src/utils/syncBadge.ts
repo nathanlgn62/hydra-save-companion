@@ -4,43 +4,11 @@ import {
   Cloud,
   CloudDownload,
   CloudUpload,
-  LucideIcon,
 } from "lucide-react";
+import { SaveStatusFilter, SyncBadgeConfig, SyncBadgeVariant } from "../types";
+import { parseSaveDate } from "./date";
 
-export type SyncBadgeVariant =
-  | "neutral"
-  | "warning"
-  | "success"
-  | "info"
-  | "danger";
-
-export interface SyncBadgeConfig {
-  label: string;
-  variant: SyncBadgeVariant;
-  Icon: LucideIcon;
-  description?: string;
-}
-
-function parseSaveDate(dateStr?: string | null): Date | null {
-  if (!dateStr || dateStr === "Jamais") return null;
-
-  const customFormatRegex = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/;
-  const match = dateStr.match(customFormatRegex);
-
-  if (match) {
-    const [, day, month, year, hours, minutes] = match;
-    return new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      Number(hours),
-      Number(minutes),
-    );
-  }
-
-  const parsed = new Date(dateStr);
-  return isNaN(parsed.getTime()) ? null : parsed;
-}
+export type { SaveStatusFilter, SyncBadgeConfig, SyncBadgeVariant };
 
 export function getSyncBadgeConfig(
   ludasaviPathExists?: boolean,
@@ -101,7 +69,7 @@ export function getSyncBadgeConfig(
     };
   }
 
-  const timeDiff = localDate.getTime() - remoteDate.getTime();
+  const timeDiff = localDate - remoteDate;
 
   if (Math.abs(timeDiff) < 60000) {
     return {
@@ -129,4 +97,33 @@ export function getSyncBadgeConfig(
     description:
       "La version sur le cloud est plus récente que votre sauvegarde locale.",
   };
+}
+
+export function getGameStatusCategory(
+  ludasaviPathExists?: boolean,
+  lastLocalSave?: string | null,
+  lastRemoteSave?: string | null,
+): SaveStatusFilter {
+  const badge = getSyncBadgeConfig(
+    ludasaviPathExists,
+    lastLocalSave,
+    lastRemoteSave,
+  );
+
+  switch (badge.label) {
+    case "À jour":
+      return "up-to-date";
+    case "Local plus récent":
+      return "local-newer";
+    case "Cloud plus récent":
+      return "cloud-newer";
+    case "À télécharger":
+      return "to-download";
+    case "Jamais sync":
+      return "never-synced";
+    case "Aucune sauvegarde":
+    case "Introuvable":
+    default:
+      return "no-save";
+  }
 }

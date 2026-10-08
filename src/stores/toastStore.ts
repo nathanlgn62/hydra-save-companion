@@ -1,11 +1,6 @@
-export type ToastType = "success" | "error" | "info";
+import { Toast, ToastType } from "../types";
 
-export interface Toast {
-  id: string;
-  message: string;
-  type: ToastType;
-  timestamp: string;
-}
+export type { Toast, ToastType };
 
 let toasts: Toast[] = [];
 let history: Toast[] = [];

@@ -365,8 +365,8 @@ pub async fn check_sync_google_drive(
         .unwrap_or_else(|| "Jamais".to_string());
     Ok(SyncStatusResult {
         status: "NotFound".to_string(),
-        localTime: local_str,
-        cloudTime: "Jamais".to_string(),
+        local_time: local_str,
+        cloud_time: "Jamais".to_string(),
         backups,
     })
 }
@@ -475,8 +475,8 @@ pub async fn check_sync_dropbox(
         .unwrap_or_else(|| "Jamais".to_string());
     Ok(SyncStatusResult {
         status: "NotFound".to_string(),
-        localTime: local_str,
-        cloudTime: "Jamais".to_string(),
+        local_time: local_str,
+        cloud_time: "Jamais".to_string(),
         backups,
     })
 }
@@ -554,8 +554,8 @@ pub async fn check_sync_proton_drive(
         .unwrap_or_else(|| "Jamais".to_string());
     Ok(SyncStatusResult {
         status: "NotFound".to_string(),
-        localTime: local_str,
-        cloudTime: "Jamais".to_string(),
+        local_time: local_str,
+        cloud_time: "Jamais".to_string(),
         backups,
     })
 }

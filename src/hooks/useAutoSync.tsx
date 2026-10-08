@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { setGameDownloading } from "../stores/gameStore";
 import { useToasts } from "../stores/toastStore";
-import { HydraGame } from "../types/game";
+import { HydraGame, SyncStatusResult } from "../types";
 import { useDesktopNotification } from "./useDesktopNotification";
 import { useDownloadSave, useGames } from "./useGames";
 import { useSettings } from "./useSettings";
@@ -99,12 +99,15 @@ export function useAutoDownloadSaves() {
           try {
             const provider =
               localStorage.getItem("cloud_provider") || "google-drive";
-            const syncStatus = await invoke<any>("check_game_sync_status", {
-              token: storedToken,
-              gameTitle: game.title,
-              savePath: game.savePath,
-              provider,
-            });
+            const syncStatus = await invoke<SyncStatusResult>(
+              "check_game_sync_status",
+              {
+                token: storedToken,
+                gameTitle: game.title,
+                savePath: game.savePath,
+                provider,
+              },
+            );
 
             if (syncStatus.status === "CloudNewer") {
               console.log(`[AutoSync] Téléchargement pour ${game.title}`);

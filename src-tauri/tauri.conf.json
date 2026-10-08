@@ -19,6 +19,8 @@
         "title": "hydra-save-companion",
         "width": 1024,
         "height": 768,
+        "minWidth": 800,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
         "visible": true

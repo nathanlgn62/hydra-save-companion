@@ -157,11 +157,6 @@ pub fn resolve_path_pattern(pattern: &str) -> Option<PathBuf> {
 
 // Cache global pour le manifeste Ludasavi
 pub fn get_cached_manifest() -> Result<&'static LudusaviManifest, String> {
-    static MANIFEST_CACHE: OnceLock<LudusaviManifest> = OnceLock::new();
-
-    // On initialise le OnceLock directement avec le résultat de get_or_fetch_manifest()
-    // Si ça échoue la première fois, on gère l'erreur, mais si ça réussit on stocke la struct.
-    // Ou plus simple : on stocke le Result directement en qualifiant bien le chemin si besoin :
     static MANIFEST_CACHE_RES: OnceLock<Result<crate::models::ludusavi::LudusaviManifest, String>> =
         OnceLock::new();
 

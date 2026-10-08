@@ -6,8 +6,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { ToastType } from "../../stores/toastStore";
+import { useModalAnimation } from "../../hooks/useModalAnimation";
 import { useToasts } from "../../stores/toastStore";
+import type { ToastType } from "../../types";
 
 interface ToastHistoryPanelProps {
   isOpen: boolean;
@@ -25,19 +26,29 @@ export default function ToastHistoryPanel({
   onClose,
 }: ToastHistoryPanelProps) {
   const { history, clearHistory } = useToasts();
+  const { isRendered, isVisible, closeWithAnimation } = useModalAnimation(
+    isOpen,
+    onClose,
+  );
 
-  if (!isOpen) return null;
+  if (!isRendered) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop sombre */}
+    <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
+      {/* Backdrop sombre avec fondu */}
       <div
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        className={`absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 ease-out ${
+          isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={closeWithAnimation}
       />
 
-      {/* Panneau latéral */}
-      <div className="relative w-80 bg-slate-900 border-l border-slate-800 flex flex-col h-full shadow-2xl z-10 animate-in slide-in-from-right duration-200">
+      {/* Panneau latéral avec glissement fluide */}
+      <div
+        className={`relative w-80 bg-slate-900 border-l border-slate-800 flex flex-col h-full shadow-2xl z-10 transition-transform duration-200 ease-out transform ${
+          isVisible ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
         {/* En-tête du panneau */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-100 font-medium text-sm">
@@ -46,7 +57,7 @@ export default function ToastHistoryPanel({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeWithAnimation}
             className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
