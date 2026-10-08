@@ -1,3 +1,9 @@
+export interface RemoteBackupInfo {
+  file_id: string;
+  name: string;
+  modified_time: string;
+}
+
 export interface HydraGame {
   title: string;
   objectId: string;
@@ -11,4 +17,5 @@ export interface HydraGame {
   pathExists: boolean;
   ludasaviPathExists: boolean;
   localPathExists: boolean;
+  backups?: RemoteBackupInfo[];
 }

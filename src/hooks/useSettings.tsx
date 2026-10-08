@@ -6,6 +6,7 @@ export interface UserSettings {
   downloadInterval: number | "manually";
   autoStartWithSystem: boolean;
   desktopNotificationsEnabled?: boolean;
+  demoMode?: boolean;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -13,6 +14,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   downloadInterval: 5,
   autoStartWithSystem: true,
   desktopNotificationsEnabled: true,
+  demoMode: false,
 };
 
 let storeInstance: Store | null = null;

@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Gamepad,
   HardDrive,
+  History,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { HydraGame } from "../types/game";
 import { formatDate } from "../utils/date";
 import { openFolder } from "../utils/openFolder";
 import { getSyncBadgeConfig } from "../utils/syncBadge";
+import GameBackupsModal from "./game/game-backups-modal";
 import GameReportModal from "./game/game-report-modal";
 import SyncBadge from "./sync-badge";
 
@@ -29,6 +31,7 @@ interface GameCardProps {
 
 export default function GameCard({ game }: GameCardProps) {
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isBackupsOpen, setIsBackupsOpen] = useState(false);
 
   const syncMutation = useUploadSave();
   const downloadMutation = useDownloadSave();
@@ -162,6 +165,19 @@ export default function GameCard({ game }: GameCardProps) {
 
             <button
               type="button"
+              onClick={() => setIsBackupsOpen(true)}
+              title={
+                game.backups && game.backups.length > 0
+                  ? `Voir les sauvegardes cloud (${game.backups.length})`
+                  : "Voir les sauvegardes cloud"
+              }
+              className="p-2 rounded-lg bg-slate-800 hover:bg-indigo-500/20 border border-slate-700/60 text-slate-400 hover:text-indigo-400 transition-all cursor-pointer flex items-center justify-center shrink-0"
+            >
+              <History className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsReportOpen(true)}
               title="Signaler un problème"
               className="p-2 rounded-lg bg-slate-800 hover:bg-red-500/20 border border-slate-700/60 text-slate-400 hover:text-red-400 transition-all cursor-pointer flex items-center justify-center shrink-0"
@@ -204,6 +220,14 @@ export default function GameCard({ game }: GameCardProps) {
           </div>
         </div>
       </div>
+
+      <GameBackupsModal
+        gameTitle={game.title}
+        savePath={game.savePath}
+        backups={game.backups ?? []}
+        isOpen={isBackupsOpen}
+        onClose={() => setIsBackupsOpen(false)}
+      />
 
       <GameReportModal
         gameTitle={game.title}

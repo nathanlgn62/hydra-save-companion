@@ -50,20 +50,6 @@ pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
         .map_err(|e| format!("Erreur de parsing du manifest Ludusavi YAML : {}", e))
 }
 
-#[cfg(target_os = "windows")]
-pub fn get_active_steam_user_id() -> Option<String> {
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let steam_key = hkcu
-        .open_subkey(r"Software\Valve\Steam\ActiveProcess")
-        .ok()?;
-    let user_id: u32 = steam_key.get_value("ActiveUser").ok()?;
-    if user_id != 0 {
-        Some(user_id.to_string())
-    } else {
-        None
-    }
-}
-
 pub fn resolve_ludusavi_placeholders(path_str: &str, app_id: Option<&str>) -> String {
     let mut resolved = path_str.to_string();
 
@@ -168,6 +154,7 @@ pub fn resolve_path_pattern(pattern: &str) -> Option<PathBuf> {
 
     None
 }
+
 // Cache global pour le manifeste Ludasavi
 pub fn get_cached_manifest() -> Result<&'static LudusaviManifest, String> {
     static MANIFEST_CACHE: OnceLock<LudusaviManifest> = OnceLock::new();

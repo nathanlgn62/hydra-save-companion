@@ -12,6 +12,7 @@ use commands::game::check_game_sync_status;
 use commands::game::get_game_save_info;
 use commands::game::get_steam_cover;
 use commands::hydra::get_installed_games;
+use commands::hydra::setup_demo_environment;
 use commands::utils::open_folder;
 use commands::watcher::set_monitored_games;
 
@@ -30,6 +31,7 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_installed_games,
+            setup_demo_environment,
             get_game_save_info,
             check_game_sync_status,
             open_folder,

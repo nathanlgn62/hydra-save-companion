@@ -17,9 +17,9 @@
     "windows": [
       {
         "title": "hydra-save-companion",
-        "width": 800,
-        "height": 600,
-        "resizable": false,
+        "width": 1024,
+        "height": 768,
+        "resizable": true,
         "fullscreen": false,
         "visible": true
       }

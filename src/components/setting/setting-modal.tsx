@@ -105,6 +105,19 @@ export default function SettingsModal({
                   })
                 }
               />
+
+              <div className="pt-2 border-t border-slate-800/80">
+                <Toggle
+                  label="Mode Simulation / Démo"
+                  description="Simuler des jeux et des sauvegardes locales pour tester l'application"
+                  checked={settings.demoMode ?? false}
+                  onChange={(checked) =>
+                    updateSettings({
+                      demoMode: checked,
+                    })
+                  }
+                />
+              </div>
             </>
           )}
         </div>

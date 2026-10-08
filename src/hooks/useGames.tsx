@@ -6,6 +6,8 @@ import { HydraGame } from "../types/game";
 import { parseSaveDate } from "../utils/date";
 import { useDesktopNotification } from "./useDesktopNotification";
 
+import { useSettings } from "./useSettings";
+
 interface SaveInfoResponse {
   ludasaviPathExists: boolean;
   localPathExists: boolean;
@@ -16,14 +18,29 @@ interface SaveInfoResponse {
 interface SyncPayload {
   gameTitle: string;
   savePath: string;
+  fileId?: string;
 }
 
 // Fetch global de tous les jeux
 export function useGames() {
+  const { settings } = useSettings();
+  const isDemo = !!settings?.demoMode;
+
   return useQuery({
-    queryKey: ["games"],
+    queryKey: ["games", isDemo],
     queryFn: async () => {
-      const installedGames = await invoke<HydraGame[]>("get_installed_games");
+      let installedGames: HydraGame[] = [];
+      if (isDemo) {
+        installedGames = await invoke<HydraGame[]>("setup_demo_environment");
+      } else {
+        try {
+          installedGames = await invoke<HydraGame[]>("get_installed_games");
+        } catch (e) {
+          console.warn("Hydra games not detected, checking demo mode or empty:", e);
+          installedGames = [];
+        }
+      }
+
       const storedToken =
         localStorage.getItem("cloud_token") ||
         localStorage.getItem("gdrive_token");
@@ -47,6 +64,7 @@ export function useGames() {
           console.log("saveInfo", saveInfo);
 
           let remoteDate = "Jamais";
+          let backups: any[] = [];
           if (storedToken && saveInfo?.resolvedPath) {
             try {
               const provider =
@@ -57,6 +75,10 @@ export function useGames() {
                 savePath: saveInfo.resolvedPath,
                 provider,
               });
+
+              if (Array.isArray(syncStatus.backups)) {
+                backups = syncStatus.backups;
+              }
 
               if (syncStatus.status === "UpToDate")
                 remoteDate = syncStatus.localTime;
@@ -79,6 +101,7 @@ export function useGames() {
             localPathExists: saveInfo?.localPathExists,
             ludasaviPathExists: saveInfo?.ludasaviPathExists,
             cover: coverUrl,
+            backups,
           } as HydraGame;
         }),
       );
@@ -169,7 +192,7 @@ export function useDownloadSave() {
   const { desktopNotification } = useDesktopNotification();
 
   return useMutation({
-    mutationFn: async ({ gameTitle, savePath }: SyncPayload) => {
+    mutationFn: async ({ gameTitle, savePath, fileId }: SyncPayload) => {
       const storedToken =
         localStorage.getItem("cloud_token") ||
         localStorage.getItem("gdrive_token");
@@ -190,6 +213,7 @@ export function useDownloadSave() {
         gameTitle,
         savePath,
         provider,
+        fileId: fileId ?? null,
       });
 
       return response;
