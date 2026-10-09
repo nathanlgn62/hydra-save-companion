@@ -84,7 +84,7 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
         let _ = fs::write(&cp_save_file, b"MOCK_CYBERPUNK_SAVE_DATA_DEMO");
     }
 
-    let demo_games = vec![
+    let mut demo_games = vec![
         HydraGame {
             title: "ELDEN RING".to_string(),
             object_id: "1245620".to_string(),
@@ -113,6 +113,38 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             has_active_steam_import: Some(false),
         },
     ];
+
+    // Détection dynamique de tout jeu/dossier supplémentaire ajouté dans hydra_companion_demo_saves
+    if let Ok(entries) = fs::read_dir(&base_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                if let Some(folder_name) = entry.file_name().to_str() {
+                    let already_exists = demo_games.iter().any(|g| {
+                        g.title.eq_ignore_ascii_case(folder_name)
+                    });
+
+                    if !already_exists {
+                        let clean_slug = folder_name
+                            .chars()
+                            .filter(|c| c.is_alphanumeric())
+                            .collect::<String>()
+                            .to_lowercase();
+                        let custom_object_id = format!("demo-{}", if clean_slug.is_empty() { "game" } else { &clean_slug });
+
+                        demo_games.push(HydraGame {
+                            title: folder_name.to_string(),
+                            object_id: custom_object_id,
+                            shop: Some("custom".to_string()),
+                            executable_path: Some(format!("/tmp/{}.exe", folder_name.replace(' ', "_"))),
+                            is_deleted: Some(false),
+                            icon_url: None,
+                            has_active_steam_import: Some(false),
+                        });
+                    }
+                }
+            }
+        }
+    }
 
     Ok(demo_games)
 }

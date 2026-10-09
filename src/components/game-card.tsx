@@ -2,7 +2,8 @@ import {
   AlertTriangle,
   Clock,
   Cloud,
-  Download,
+  CloudDownload,
+  CloudUpload,
   FolderOpen,
   Gamepad,
   HardDrive,
@@ -216,7 +217,9 @@ export default function GameCard({ game }: GameCardProps) {
                   <span className="truncate">
                     {downloadMutation.isPending
                       ? "Téléchargement..."
-                      : "Sync..."}
+                      : syncMutation.isPending
+                      ? "Envoi vers le cloud..."
+                      : "Synchronisation..."}
                   </span>
                 </>
               ) : countdown !== null ? (
@@ -226,8 +229,13 @@ export default function GameCard({ game }: GameCardProps) {
                 </>
               ) : syncDirection === "down" ? (
                 <>
-                  <Download className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Télécharger</span>
+                  <CloudDownload className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Synchroniser vers local</span>
+                </>
+              ) : syncDirection === "up" ? (
+                <>
+                  <CloudUpload className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Synchroniser vers cloud</span>
                 </>
               ) : (
                 <>

@@ -13,7 +13,12 @@ import { SaveStatusFilter } from "./types";
 import { getGameStatusCategory } from "./utils/syncBadge";
 
 export default function App() {
-  const { data: games = [], isLoading } = useGames();
+  const {
+    data: games = [],
+    isLoading,
+    refetch,
+    isFetching,
+  } = useGames();
   const { updateSettings } = useSettings();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,7 +91,7 @@ export default function App() {
     <div className="w-screen h-screen flex flex-col bg-slate-950 text-slate-100 select-none overflow-hidden font-sans">
       <Header />
 
-      <main className="flex flex-col flex-1 p-4 overflow-y-auto min-h-0">
+      <main className="flex flex-col flex-1 px-4 pt-4 pb-18 overflow-y-auto min-h-0 relative">
         <AlertBanner />
 
         {isLoading ? (
@@ -107,6 +112,8 @@ export default function App() {
               filteredCount={filteredGames.length}
               statusCounts={statusCounts}
               onReset={handleResetFilters}
+              onRefresh={() => refetch()}
+              isRefreshing={isFetching}
             />
 
             {filteredGames.length > 0 ? (

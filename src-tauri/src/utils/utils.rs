@@ -4,6 +4,7 @@ use std::io::Cursor;
 use std::path::Path;
 use zip::ZipArchive;
 
+#[allow(dead_code)]
 pub fn compare_and_build_result(
     local_modified_info: Option<(chrono::DateTime<chrono::Utc>, String)>,
     cloud_modified_utc: chrono::DateTime<chrono::Utc>,

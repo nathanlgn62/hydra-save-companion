@@ -1,3 +1,6 @@
+// [AUTOSYNC DOWNLOAD DÉSACTIVÉ]
+// Les imports et la logique d'auto-sync download sont commentés ci-dessous pour être réactivés facilement plus tard.
+/*
 import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
@@ -7,8 +10,18 @@ import { HydraGame, SyncStatusResult } from "../types";
 import { useDesktopNotification } from "./useDesktopNotification";
 import { useDownloadSave, useGames } from "./useGames";
 import { useSettings } from "./useSettings";
+*/
 
 export function useAutoDownloadSaves() {
+  // Mode automatique de téléchargement désactivé
+  return {
+    timeLeft: null,
+    isManual: true,
+  };
+}
+
+/*
+export function useAutoDownloadSavesActive() {
   const queryClient = useQueryClient();
   const downloadMutation = useDownloadSave();
   const { settings } = useSettings();
@@ -177,3 +190,4 @@ function formatTime(totalSeconds: number): string {
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 }
+*/

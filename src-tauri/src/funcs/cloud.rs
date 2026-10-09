@@ -260,6 +260,7 @@ pub async fn get_or_create_drive_folder(
     }
 }
 
+#[allow(dead_code)]
 pub async fn check_sync_google_drive(
     token: String,
     file_name: String,
@@ -371,6 +372,7 @@ pub async fn check_sync_google_drive(
     })
 }
 
+#[allow(dead_code)]
 pub async fn check_sync_dropbox(
     token: String,
     file_name: String,
@@ -481,6 +483,7 @@ pub async fn check_sync_dropbox(
     })
 }
 
+#[allow(dead_code)]
 pub async fn check_sync_proton_drive(
     file_name: String,
     local_modified_info: Option<(chrono::DateTime<chrono::Utc>, String)>,

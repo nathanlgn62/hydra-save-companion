@@ -58,6 +58,8 @@ export default function SettingsModal({
             </div>
           ) : (
             <>
+              {/* [AUTOSYNC DOWNLOAD DÉSACTIVÉ]
+                  Décommenter cette section pour réactiver la configuration de l'auto-download dans les paramètres
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1.5">
                   Fréquence de téléchargement des sauvegardes cloud
@@ -80,6 +82,7 @@ export default function SettingsModal({
                   <option value="manually">Manuel uniquement</option>
                 </select>
               </div>
+              */}
 
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1.5">
