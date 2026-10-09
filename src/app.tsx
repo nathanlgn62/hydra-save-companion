@@ -5,6 +5,7 @@ import Footer from "./components/layout/footer";
 import GameCard from "./components/game/game-card";
 import GameFilterBar from "./components/game/game-filter-bar";
 import Header from "./components/layout/header";
+import SplashScreen from "./components/layout/splash-screen";
 import ToastContainer from "./components/toast/toast-container";
 import { useGames } from "./hooks/use-games";
 import { useSettings } from "./hooks/use-settings";
@@ -89,19 +90,13 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-950 text-slate-100 select-none overflow-hidden font-sans">
+      <SplashScreen isLoading={isLoading} />
       <Header />
 
       <main className="flex flex-col flex-1 px-4 pt-4 pb-18 overflow-y-auto min-h-0 relative">
         <AlertBanner />
 
-        {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
-            <div className="w-6 h-6 border-2 border-slate-600 border-t-indigo-500 rounded-full animate-spin" />
-            <span className="text-sm">
-              Recherche des jeux et sauvegardes...
-            </span>
-          </div>
-        ) : games.length > 0 ? (
+        {isLoading ? null : games.length > 0 ? (
           <div className="flex flex-col flex-1">
             <GameFilterBar
               searchQuery={searchQuery}

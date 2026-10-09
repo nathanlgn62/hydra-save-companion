@@ -6,6 +6,7 @@ import { getProviderDisplayName } from "../../utils/provider-display-name";
 import SettingsModal from "../setting/setting-modal";
 import ToastHistoryPanel from "../toast/toast-history-pannel";
 import CloudProviderModal from "../cloud/cloud-provider-modal";
+import logoSvg from "../../assets/logo.svg";
 
 export default function Header() {
   const [loading] = useState<boolean>(false);
@@ -34,10 +35,15 @@ export default function Header() {
   return (
     <>
       <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-12 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/20">
-            HSC
+        <div className="flex items-center gap-3">
+          <div className="relative w-8 h-8 rounded-lg p-0.5 bg-[#1A0731] border border-cyan-500/30 shadow-md shadow-cyan-950/40 overflow-hidden flex items-center justify-center shrink-0">
+            <img
+              src={logoSvg}
+              alt="Hydra Save Companion"
+              className="w-full h-full object-cover"
+            />
           </div>
+
           {settings?.demoMode && (
             <span
               onClick={() => updateSettings({ demoMode: false })}
