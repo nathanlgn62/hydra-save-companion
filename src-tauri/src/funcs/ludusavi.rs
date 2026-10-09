@@ -12,13 +12,32 @@ const MANIFEST_URL: &str =
 
 pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
     let cache_dir = env::temp_dir().join("hydra_companion");
-    let manifest_path = cache_dir.join("ludusavi_manifest.yaml");
+    let manifest_yaml_path = cache_dir.join("ludusavi_manifest.yaml");
+    let manifest_json_path = cache_dir.join("ludusavi_manifest.json");
 
     let _ = fs::create_dir_all(&cache_dir);
 
-    let should_download = if !manifest_path.exists() {
+    // 1. Si le cache JSON compilé existe déjà et est récent, on le lit directement en ~20-50ms (contre plusieurs secondes en YAML)
+    if manifest_json_path.exists() {
+        if let Ok(metadata) = fs::metadata(&manifest_json_path) {
+            let is_recent = metadata
+                .modified()
+                .map(|m| m.elapsed().map(|d| d.as_secs() < 7 * 86400).unwrap_or(false))
+                .unwrap_or(false);
+
+            if is_recent {
+                if let Ok(content) = fs::read_to_string(&manifest_json_path) {
+                    if let Ok(manifest) = serde_json::from_str::<LudusaviManifest>(&content) {
+                        return Ok(manifest);
+                    }
+                }
+            }
+        }
+    }
+
+    let should_download = if !manifest_yaml_path.exists() {
         true
-    } else if let Ok(metadata) = fs::metadata(&manifest_path) {
+    } else if let Ok(metadata) = fs::metadata(&manifest_yaml_path) {
         if let Ok(modified) = metadata.modified() {
             modified
                 .elapsed()
@@ -34,17 +53,24 @@ pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
     if should_download {
         if let Ok(response) = reqwest::blocking::get(MANIFEST_URL) {
             if let Ok(bytes) = response.bytes() {
-                let _ = fs::write(&manifest_path, bytes);
+                let _ = fs::write(&manifest_yaml_path, bytes);
             }
         }
     }
 
-    let content = fs::read_to_string(&manifest_path)
+    let content = fs::read_to_string(&manifest_yaml_path)
         .map_err(|e| format!("Impossible de lire le manifest : {}", e))?;
 
-    // Utilisation de serde_yaml pour parser le format YAML officiel de Ludasavi
-    serde_yaml::from_str::<LudusaviManifest>(&content)
-        .map_err(|e| format!("Erreur de parsing du manifest Ludusavi YAML : {}", e))
+    // Parsing YAML officiel de Ludasavi
+    let manifest = serde_yaml::from_str::<LudusaviManifest>(&content)
+        .map_err(|e| format!("Erreur de parsing du manifest Ludusavi YAML : {}", e))?;
+
+    // Sauvegarde en cache JSON pour les lancements suivants ultra-rapides
+    if let Ok(json_str) = serde_json::to_string(&manifest) {
+        let _ = fs::write(&manifest_json_path, json_str);
+    }
+
+    Ok(manifest)
 }
 
 pub fn resolve_ludusavi_placeholders(path_str: &str, app_id: Option<&str>) -> String {

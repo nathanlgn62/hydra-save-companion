@@ -6,8 +6,9 @@ use crate::funcs::hydra::{copy_dir_all, get_hydra_db_dir};
 use crate::models::game::HydraGame;
 
 #[tauri::command]
-pub fn get_installed_games() -> Result<Vec<HydraGame>, String> {
-    let original_db_path = get_hydra_db_dir()?;
+pub async fn get_installed_games() -> Result<Vec<HydraGame>, String> {
+    tokio::task::spawn_blocking(move || {
+        let original_db_path = get_hydra_db_dir()?;
 
     if !original_db_path.exists() {
         return Err(format!("BDD Hydra introuvable : {:?}", original_db_path));
@@ -51,9 +52,12 @@ pub fn get_installed_games() -> Result<Vec<HydraGame>, String> {
         }
     }
 
-    let _ = fs::remove_dir_all(temp_db_path);
+        let _ = fs::remove_dir_all(temp_db_path);
 
-    Ok(games)
+        Ok(games)
+    })
+    .await
+    .map_err(|e| format!("Erreur tâche de fond Hydra DB : {}", e))?
 }
 
 #[tauri::command]

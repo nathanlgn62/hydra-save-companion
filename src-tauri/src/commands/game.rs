@@ -13,15 +13,16 @@ use crate::models::save::SaveInfo;
 use crate::models::sync::SyncStatusResult;
 
 #[tauri::command]
-pub fn get_game_save_info(
+pub async fn get_game_save_info(
     app_id: Option<String>,
     title: String,
     custom_path: Option<String>,
 ) -> SaveInfo {
-    println!(
-        "\n[DEBUG] Recherche save pour le jeu: '{}' (AppID: {:?})",
-        title, app_id
-    );
+    tokio::task::spawn_blocking(move || {
+        println!(
+            "\n[DEBUG] Recherche save pour le jeu: '{}' (AppID: {:?})",
+            title, app_id
+        );
 
     if let Some(ref path_str) = custom_path {
         if !path_str.trim().is_empty() {
@@ -189,13 +190,21 @@ pub fn get_game_save_info(
         }
     }
 
-    println!("[DEBUG] Aucun chemin valide trouvé via le manifeste.");
-    SaveInfo {
+        println!("[DEBUG] Aucun chemin valide trouvé via le manifeste.");
+        SaveInfo {
+            ludasavi_path_exists: false,
+            local_path_exists: false,
+            resolved_path: None,
+            last_modified: None,
+        }
+    })
+    .await
+    .unwrap_or(SaveInfo {
         ludasavi_path_exists: false,
         local_path_exists: false,
         resolved_path: None,
         last_modified: None,
-    }
+    })
 }
 
 #[tauri::command]
