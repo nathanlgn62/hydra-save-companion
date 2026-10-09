@@ -1,4 +1,4 @@
-import { getRunningGame } from "../stores/game-store";
+import { getRunningGame } from "../../stores/game-store";
 
 export default function Footer() {
   const runningGame = getRunningGame();

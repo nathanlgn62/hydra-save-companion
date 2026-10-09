@@ -1,5 +1,5 @@
 import { Clock, Cloud, HardDrive, X } from "lucide-react";
-import { useModalAnimation } from "../../../hooks/use-modal-animation";
+import { useModalAnimation } from "../../hooks/use-modal-animation";
 
 interface CloudProviderModalProps {
   isOpen: boolean;

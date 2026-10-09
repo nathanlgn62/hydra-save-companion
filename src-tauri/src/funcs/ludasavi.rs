@@ -3,17 +3,17 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use crate::models::ludusavi::LudusaviManifest;
+use crate::models::ludasavi::LudasaviManifest;
 
 
 
 const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/mtkennerly/ludusavi-manifest/master/data/manifest.yaml";
 
-pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
+pub fn get_or_fetch_manifest() -> Result<LudasaviManifest, String> {
     let cache_dir = env::temp_dir().join("hydra_companion");
-    let manifest_yaml_path = cache_dir.join("ludusavi_manifest.yaml");
-    let manifest_json_path = cache_dir.join("ludusavi_manifest.json");
+    let manifest_yaml_path = cache_dir.join("ludasavi_manifest.yaml");
+    let manifest_json_path = cache_dir.join("ludasavi_manifest.json");
 
     let _ = fs::create_dir_all(&cache_dir);
 
@@ -27,7 +27,7 @@ pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
 
             if is_recent {
                 if let Ok(content) = fs::read_to_string(&manifest_json_path) {
-                    if let Ok(manifest) = serde_json::from_str::<LudusaviManifest>(&content) {
+                    if let Ok(manifest) = serde_json::from_str::<LudasaviManifest>(&content) {
                         return Ok(manifest);
                     }
                 }
@@ -62,8 +62,8 @@ pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
         .map_err(|e| format!("Impossible de lire le manifest : {}", e))?;
 
     // Parsing YAML officiel de Ludasavi
-    let manifest = serde_yaml::from_str::<LudusaviManifest>(&content)
-        .map_err(|e| format!("Erreur de parsing du manifest Ludusavi YAML : {}", e))?;
+    let manifest = serde_yaml::from_str::<LudasaviManifest>(&content)
+        .map_err(|e| format!("Erreur de parsing du manifest Ludasavi YAML : {}", e))?;
 
     // Sauvegarde en cache JSON pour les lancements suivants ultra-rapides
     if let Ok(json_str) = serde_json::to_string(&manifest) {
@@ -73,7 +73,7 @@ pub fn get_or_fetch_manifest() -> Result<LudusaviManifest, String> {
     Ok(manifest)
 }
 
-pub fn resolve_ludusavi_placeholders(path_str: &str, app_id: Option<&str>) -> String {
+pub fn resolve_ludasavi_placeholders(path_str: &str, app_id: Option<&str>) -> String {
     let mut resolved = path_str.to_string();
 
     #[cfg(target_os = "windows")]
@@ -178,11 +178,11 @@ pub fn resolve_path_pattern(pattern: &str) -> Option<PathBuf> {
 }
 
 // Cache global pour le manifeste Ludasavi
-pub fn get_cached_manifest() -> Result<&'static LudusaviManifest, String> {
-    static MANIFEST_CACHE_RES: OnceLock<Result<crate::models::ludusavi::LudusaviManifest, String>> =
+pub fn get_cached_manifest() -> Result<&'static LudasaviManifest, String> {
+    static MANIFEST_CACHE_RES: OnceLock<Result<crate::models::ludasavi::LudasaviManifest, String>> =
         OnceLock::new();
 
-    let res = MANIFEST_CACHE_RES.get_or_init(|| get_or_fetch_manifest());
+    let res = MANIFEST_CACHE_RES.get_or_init(get_or_fetch_manifest);
 
     res.as_ref().map_err(|e| e.clone())
 }

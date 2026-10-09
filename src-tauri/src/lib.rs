@@ -83,7 +83,7 @@ pub fn run() {
             // Préchargement asynchrone en arrière-plan du manifest Ludasavi
             // pour éliminer tout temps d'attente lors de la première requête frontend
             std::thread::spawn(|| {
-                let _ = funcs::ludusavi::get_cached_manifest();
+                let _ = funcs::ludasavi::get_cached_manifest();
             });
 
             Ok(())

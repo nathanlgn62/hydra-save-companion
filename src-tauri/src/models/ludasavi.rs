@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub struct LudusaviManifest {
+pub struct LudasaviManifest {
     #[serde(flatten)]
     pub games: HashMap<String, GameEntry>,
 }

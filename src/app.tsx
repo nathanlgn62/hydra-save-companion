@@ -1,10 +1,10 @@
 import { RotateCcw, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import AlertBanner from "./components/banner/alert-banner";
-import Footer from "./components/footer";
-import GameCard from "./components/game-card";
+import Footer from "./components/layout/footer";
+import GameCard from "./components/game/game-card";
 import GameFilterBar from "./components/game/game-filter-bar";
-import Header from "./components/header";
+import Header from "./components/layout/header";
 import ToastContainer from "./components/toast/toast-container";
 import { useGames } from "./hooks/use-games";
 import { useSettings } from "./hooks/use-settings";
