@@ -6,8 +6,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useModalAnimation } from "../../hooks/useModalAnimation";
-import { useToasts } from "../../stores/toastStore";
+import { useModalAnimation } from "../../hooks/use-modal-animation";
+import { useToasts } from "../../stores/toast-store";
 import type { ToastType } from "../../types";
 
 interface ToastHistoryPanelProps {

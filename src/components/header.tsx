@@ -1,11 +1,11 @@
 import { Cloud, CloudOff, History, Settings } from "lucide-react";
 import { useState } from "react";
-import { useSettings } from "../hooks/useSettings";
-import { loginCloud, useCloudStatus } from "../stores/cloudStore";
+import { useSettings } from "../hooks/use-settings";
+import { loginCloud, useCloudStatus } from "../stores/cloud-store";
 import { getProviderDisplayName } from "../utils/provider-display-name";
 import SettingsModal from "./setting/setting-modal";
 import ToastHistoryPanel from "./toast/toast-history-pannel";
-import CloudProviderModal from "./UI/Modals/cloud-provider-modal";
+import CloudProviderModal from "./ui/modals/cloud-provider-modal";
 
 export default function Header() {
   const [loading] = useState<boolean>(false);

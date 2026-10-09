@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import type { ReactElement } from "react";
 import { ToastType } from "../../types";
-import { useToasts } from "../../stores/toastStore";
+import { useToasts } from "../../stores/toast-store";
 
 const iconMap: Record<ToastType, ReactElement> = {
   success: <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />,

@@ -7,8 +7,8 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { useDownloadSave } from "../../hooks/useGames";
-import { useModalAnimation } from "../../hooks/useModalAnimation";
+import { useDownloadSave } from "../../hooks/use-games";
+import { useModalAnimation } from "../../hooks/use-modal-animation";
 import { RemoteBackupInfo } from "../../types";
 import { parseSaveDate } from "../../utils/date";
 

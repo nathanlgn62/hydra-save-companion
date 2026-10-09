@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
-import { useModalAnimation } from "../../hooks/useModalAnimation";
+import { useModalAnimation } from "../../hooks/use-modal-animation";
 import { UserSettings } from "../../types";
-import Toggle from "../UI/toggle";
+import Toggle from "../ui/toggle";
 
 interface SettingsModalProps {
   isOpen: boolean;

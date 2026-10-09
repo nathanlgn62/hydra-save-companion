@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
-import { setRunningGame } from "../stores/gameStore";
-import { useToasts } from "../stores/toastStore";
+import { setRunningGame } from "../stores/game-store";
+import { useToasts } from "../stores/toast-store";
 import { GameClosedPayload } from "../types";
-import { useDesktopNotification } from "./useDesktopNotification";
-import { useUploadSave } from "./useGames";
-import { useSettings } from "./useSettings";
+import { useDesktopNotification } from "./use-desktop-notification";
+import { useUploadSave } from "./use-games";
+import { useSettings } from "./use-settings";
 
 export function useWatcher() {
   const queryClient = useQueryClient();

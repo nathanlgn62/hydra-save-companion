@@ -16,12 +16,12 @@ import {
   useDownloadSave,
   useGameSyncStatus,
   useUploadSave,
-} from "../hooks/useGames";
-import { useIsGameDownloading } from "../stores/gameStore";
+} from "../hooks/use-games";
+import { useIsGameDownloading } from "../stores/game-store";
 import { HydraGame } from "../types";
 import { formatDate } from "../utils/date";
-import { openFolder } from "../utils/openFolder";
-import { getSyncBadgeConfig } from "../utils/syncBadge";
+import { openFolder } from "../utils/open-folder";
+import { getSyncBadgeConfig } from "../utils/sync-badge";
 import GameBackupsModal from "./game/game-backups-modal";
 import GameReportModal from "./game/game-report-modal";
 import SyncBadge from "./sync-badge";

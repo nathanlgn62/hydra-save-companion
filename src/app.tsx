@@ -6,11 +6,11 @@ import GameCard from "./components/game-card";
 import GameFilterBar from "./components/game/game-filter-bar";
 import Header from "./components/header";
 import ToastContainer from "./components/toast/toast-container";
-import { useGames } from "./hooks/useGames";
-import { useSettings } from "./hooks/useSettings";
-import { useWatcher } from "./hooks/useWatcher";
+import { useGames } from "./hooks/use-games";
+import { useSettings } from "./hooks/use-settings";
+import { useWatcher } from "./hooks/use-watcher";
 import { SaveStatusFilter } from "./types";
-import { getGameStatusCategory } from "./utils/syncBadge";
+import { getGameStatusCategory } from "./utils/sync-badge";
 
 export default function App() {
   const {

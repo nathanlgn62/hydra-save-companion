@@ -1,6 +1,6 @@
 import { AlertTriangle, Send, X } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useModalAnimation } from "../../hooks/useModalAnimation";
+import { useModalAnimation } from "../../hooks/use-modal-animation";
 
 interface GameReportModalProps {
   gameTitle: string;

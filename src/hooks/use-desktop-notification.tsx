@@ -4,8 +4,8 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import { useCallback } from "react";
-import { useTauriWindowFocus } from "./useAppIsFocused";
-import { useSettings } from "./useSettings";
+import { useTauriWindowFocus } from "./use-app-is-focused";
+import { useSettings } from "./use-settings";
 
 export function useDesktopNotification() {
   const { settings } = useSettings();
