@@ -1,12 +1,13 @@
 export const getStoredStatus = () => {
-  const currentProvider =
-    localStorage.getItem("cloud_provider") ||
-    localStorage.getItem("gdrive_token")
-      ? "google-drive"
-      : null;
-  const isConnected =
-    !!localStorage.getItem("cloud_token") ||
-    !!localStorage.getItem("gdrive_token") ||
-    !!localStorage.getItem("cloud_provider");
-  return { isConnected, provider: currentProvider };
+  const cloudProvider = localStorage.getItem("cloud_provider");
+  const cloudToken = localStorage.getItem("cloud_token");
+  const gdriveToken = localStorage.getItem("gdrive_token");
+
+  const isConnected = !!cloudToken || !!gdriveToken;
+  const provider = cloudProvider || (gdriveToken ? "google-drive" : null);
+
+  return {
+    isConnected,
+    provider: isConnected ? provider : null,
+  };
 };

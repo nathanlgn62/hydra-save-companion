@@ -422,8 +422,8 @@ pub async fn check_sync_dropbox(
                                 .unwrap_or_default()
                                 .to_string();
                             let date_str = entry
-                                .get("server_modified")
-                                .or_else(|| entry.get("client_modified"))
+                                .get("client_modified")
+                                .or_else(|| entry.get("server_modified"))
                                 .and_then(|v| v.as_str())
                                 .unwrap_or_default();
 

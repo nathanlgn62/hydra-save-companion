@@ -38,14 +38,17 @@ export default function CloudProviderModal({
       id: "mega",
       name: "Mega",
       available: false,
+      badge: "Bientôt",
       color: "text-red-400/50 border-red-500/10 opacity-60 cursor-not-allowed",
     },
     {
       id: "proton-drive",
       name: "Proton Drive",
-      available: true,
+      available: false,
+      badge: "Indisponible",
+      subtitle: "Pas d'API OAuth publique",
       color:
-        "text-purple-400 border-purple-500/20 hover:bg-purple-500/10 cursor-pointer",
+        "text-purple-400/50 border-purple-500/10 opacity-60 cursor-not-allowed",
     },
   ];
 
@@ -96,15 +99,22 @@ export default function CloudProviderModal({
               }}
               className={`w-full flex items-center justify-between p-3 rounded-xl border bg-slate-800/50 transition-all ${provider.color}`}
             >
-              <span className="text-sm font-medium text-slate-200">
-                {provider.name}
-              </span>
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-medium text-slate-200">
+                  {provider.name}
+                </span>
+                {provider.subtitle && (
+                  <span className="text-[10px] text-slate-500">
+                    {provider.subtitle}
+                  </span>
+                )}
+              </div>
               {provider.available ? (
                 <HardDrive className="w-4 h-4 text-slate-400" />
               ) : (
-                <span className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-md">
-                  <Clock className="w-3 h-3" />
-                  Bientôt
+                <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-900/80 border border-slate-800 px-2 py-0.5 rounded-md">
+                  <Clock className="w-3 h-3 text-slate-500" />
+                  {provider.badge || "Bientôt"}
                 </span>
               )}
             </button>

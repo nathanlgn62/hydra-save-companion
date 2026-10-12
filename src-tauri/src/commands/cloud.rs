@@ -153,7 +153,11 @@ pub async fn login_cloud(app: tauri::AppHandle, provider: String) -> Result<Stri
         )
     })?;
 
-    let redirect_uri = "http://localhost:8000";
+    let redirect_uri = if provider == "dropbox" {
+        "http://localhost:8000/"
+    } else {
+        "http://localhost:8000"
+    };
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     let tx_cell = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));

@@ -22,12 +22,14 @@ export const loginCloud = async (provider: string) => {
     if (tokenResponse) {
       localStorage.setItem("cloud_provider", provider);
       localStorage.setItem("cloud_token", tokenResponse);
-
-      // Invalide le cache React Query pour charger les données cloud fraîches
-      queryClient.invalidateQueries({ queryKey: ["games"] });
-      queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
+      localStorage.removeItem("gdrive_token");
 
       notifyListeners();
+
+      // Invalide et force le rechargement immédiat des queries
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
+      queryClient.refetchQueries({ queryKey: ["cloud-storage"] });
     }
   } catch (err) {
     console.error(`Erreur d'authentification pour ${provider} :`, err);
@@ -39,6 +41,8 @@ export const disconnectCloud = () => {
   localStorage.removeItem("cloud_token");
   localStorage.removeItem("cloud_provider");
   localStorage.removeItem("gdrive_token");
+
+  notifyListeners();
 
   // Réinitialise immédiatement en mémoire les informations distantes des jeux
   queryClient.setQueriesData<HydraGame[]>({ queryKey: ["games"] }, (oldGames) => {
@@ -53,8 +57,6 @@ export const disconnectCloud = () => {
   // Invalide les requêtes pour assurer une synchronisation propre
   queryClient.invalidateQueries({ queryKey: ["games"] });
   queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
-
-  notifyListeners();
 };
 
 export const getCloudStatus = () => getStoredStatus();

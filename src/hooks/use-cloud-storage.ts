@@ -6,17 +6,18 @@ import { CloudStorageInfo } from "../types/cloud";
 export function useCloudStorage() {
   const { isDriveConnected, cloudProvider } = useCloudStatus();
 
-  const token =
-    localStorage.getItem("cloud_token") ||
-    localStorage.getItem("gdrive_token") ||
-    "";
-
   return useQuery<CloudStorageInfo | null>({
-    queryKey: ["cloud-storage", cloudProvider, token],
+    queryKey: ["cloud-storage", cloudProvider],
     queryFn: async () => {
+      const token =
+        localStorage.getItem("cloud_token") ||
+        localStorage.getItem("gdrive_token") ||
+        "";
+
       if (!isDriveConnected || !token) {
         return null;
       }
+
       try {
         return await invoke<CloudStorageInfo>("get_cloud_storage_info", {
           token,
@@ -30,9 +31,8 @@ export function useCloudStorage() {
         return null;
       }
     },
-    enabled: isDriveConnected && !!token,
-    refetchInterval: 1000 * 60 * 2,
-    staleTime: 1000 * 60,
+    enabled: isDriveConnected,
+    refetchInterval: 1000 * 60,
+    staleTime: 1000 * 5,
   });
 }
-

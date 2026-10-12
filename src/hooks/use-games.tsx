@@ -133,7 +133,7 @@ export function useUploadSave() {
         localStorage.getItem("gdrive_token");
       const provider = localStorage.getItem("cloud_provider") || "google-drive";
 
-      if (!storedToken && provider !== "proton-drive") {
+      if (!storedToken) {
         showToast("Non connecté à un service Cloud", "error");
         desktopNotification(
           "Synchronisation automatique",
@@ -165,6 +165,7 @@ export function useUploadSave() {
       );
       showToast("Upload de la sauvegarde terminé.", "success");
       queryClient.refetchQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
     },
     onError: () => {
       desktopNotification(
@@ -188,7 +189,7 @@ export function useDownloadSave() {
         localStorage.getItem("gdrive_token");
       const provider = localStorage.getItem("cloud_provider") || "google-drive";
 
-      if (!storedToken && provider !== "proton-drive") {
+      if (!storedToken) {
         showToast("Non connecté à un service Cloud", "error");
         await desktopNotification(
           "Synchronisation automatique",
