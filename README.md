@@ -25,21 +25,23 @@ Sauvegardez, synchronisez et restaurez automatiquement les sauvegardes de vos je
 
 **Hydra Save Companion (HSC)** comble ce manque :
 - Il lit en direct la bibliothèque de vos jeux installés dans **Hydra Launcher**.
-- Il identifie automatiquement l'emplacement exact de chaque sauvegarde grâce à l'immense base communautaire **Ludusavi**.
+- Il identifie automatiquement l'emplacement exact de chaque sauvegarde grâce à l'immense base communautaire **Ludasavi**.
 - Il surveille l'exécution de vos jeux en arrière-plan et **téléverse vos sauvegardes sur le Cloud dès que vous quittez une partie**.
-- Il **télécharge et met à jour automatiquement vos fichiers de sauvegarde** lorsque des versions plus récentes existent sur votre Cloud.
+- Il **détecte les sauvegardes plus récentes sur le Cloud** et vous permet de les restaurer ou télécharger en un clic.
 
 ---
 
 ## ✨ Fonctionnalités Clés
 
-### 🔄 Synchronisation Cloud Transparente
+### 🔄 Synchronisation Cloud Transparente & Historique
 - **Upload automatique à la fermeture** : Détecte l'arrêt du processus de jeu et attend un court délai de sécurité (cooldown de 45 secondes) pour s'assurer que les fichiers ont fini d'être écrits sur le disque avant de créer l'archive `.zip` et de l'envoyer.
-- **Vérification & Téléchargement périodique** : Vérifie à intervalle régulier (5 min, 15 min, 30 min ou manuel) si une sauvegarde plus récente est disponible sur le Cloud et l'applique automatiquement.
+- **Historique & Rétention (5 versions)** : Conservation automatique des 5 sauvegardes les plus récentes par jeu avec politique de rotation automatique. Une fenêtre d'historique dédiée permet de restaurer en un clic n'importe quel point de sauvegarde antérieur.
+- **Téléchargement & Restauration manuelle sécurisée** : Les téléchargements depuis le Cloud ne sont jamais appliqués automatiquement afin d'éviter tout écrasement involontaire en cours de partie. Vous décidez quand restaurer une sauvegarde en un clic (depuis la carte du jeu ou la modale d'historique).
 - **Conservation des horodatages précis** : Les dates de modification des sauvegardes locales et distantes sont normalisées en UTC et synchronisées à la seconde près.
+- **Télémétrie du Cloud en direct** : Affichage temps réel dans le footer de l'espace de stockage occupé et disponible sur votre Cloud connecté (Google Drive, etc.) avec micro-jauge ergonomique.
 
 ### 🧠 Détection Intelligente des Sauvegardes
-- **Intégration du manifeste Ludusavi** : Téléchargement et mise en cache du manifeste officiel [Ludusavi](https://github.com/mtkennerly/ludusavi-manifest) répertoriant les chemins de sauvegarde de plus de 10 000 jeux PC.
+- **Intégration du manifeste Ludasavi** : Téléchargement et mise en cache du manifeste officiel [Ludasavi](https://github.com/mtkennerly/ludasavi-manifest) répertoriant les chemins de sauvegarde de plus de 10 000 jeux PC.
 - **Résolution des chemins dynamiques** : Prise en charge des variables d'environnement (`%APPDATA%`, `%LOCALAPPDATA%`, `Saved Games`, `Documents`, répertoires sous Linux `$HOME`, etc.) et des identifiants Steam (`SteamID` via registre Windows).
 - **Support des émulateurs de DRM** : Heuristiques spécifiques pour localiser les sauvegardes créées par les émulateurs courants (RUNE, CODEX, TENOKE, EMPRESS, Goldberg SteamEmu, FLT, Razor1911...).
 
@@ -48,6 +50,7 @@ Sauvegardez, synchronisez et restaurez automatiquement les sauvegardes de vos je
 - **Filtrage intelligent** : Seuls les jeux actuellement installés, actifs et dotés d'un exécutable valide sont affichés (exclusion des imports Steam officiels qui possèdent déjà leur propre Cloud).
 
 ### 🖼️ Interface Soignée & Visuels Riches
+- **Écran de lancement (Splash Screen)** : Animation fluide au démarrage avec logo officiel et jauge de progression pendant la détection et la vérification des jeux.
 - **Jaquettes officielles Steam** : Récupération dynamique des bannières et jaquettes de jeux via l'API Steam Store et le CDN Cloudflare Steam.
 - **Badges de statut en direct** : Visualisation instantanée de l'état de chaque jeu :
   - 🟢 **À jour** : Fichiers locaux et distants parfaitement synchronisés.
@@ -59,8 +62,8 @@ Sauvegardez, synchronisez et restaurez automatiquement les sauvegardes de vos je
 - **Système de signalement intégré** : Possibilité de signaler directement un problème d'emplacement de sauvegarde pour un jeu.
 
 ### ⚡ Léger, Discret et Performant
-- Construit avec **Tauri v2** et **Rust** pour une empreinte mémoire minimale (< 50 Mo de RAM).
-- **System Tray (Zone de notification)** : Réduction dans la barre des tâches sans perturber vos sessions de jeu.
+- **Gestion optimisée de la mémoire** : Utilisation de l'allocateur haute performance [`mimalloc`](https://crates.io/crates/mimalloc) et préchargement asynchrone du manifeste sur disque pour garantir une consommation RAM maîtrisée.
+- **System Tray (Zone de notification)** : Icône native intégrée dans la barre des tâches / tray system (Linux & Windows) avec menu contextuel (« Ouvrir », « Quitter ») et tooltip de statut.
 - **Notifications système natives** lors du démarrage, de la fermeture d'un jeu et de la fin de synchronisation.
 
 ---
@@ -75,28 +78,32 @@ flowchart TD
 
     subgraph HSC_Core ["Hydra Save Companion (Tauri / Rust)"]
         Scanner[Lecteur LevelDB] -->|Copie temporaire & Parse| GamesList[Liste des jeux installés]
-        Manifest[Cache Ludusavi Manifest] -->|Résolution des placeholders| SaveResolver[Localisateur de Sauvegardes]
+        Manifest[Cache Ludasavi Manifest] -->|Résolution des placeholders| SaveResolver[Localisateur de Sauvegardes]
         Watcher[Process Watcher sysinfo] -->|Écoute 3s| Events[Événements Tauri: game-started / game-closed]
         Archiver[Compresseur ZIP / Restaurateur]
+        StorageChecker[Calculateur de Quota Cloud]
     end
 
     subgraph HSC_UI ["Interface Utilisateur (React 19 + Tailwind v4)"]
+        SplashScreen[Écran de démarrage fluide]
         Dashboard[Tableau de bord des jeux]
         Badges[Badges d'état de synchronisation]
-        AutoSyncHook[Hooks useWatcher & useAutoSync]
+        WatcherHook[Hook useWatcher & upload auto]
+        Footer[Télémétrie Stockage Cloud]
     end
 
     subgraph CloudStorage ["Stockage Cloud"]
-        GDrive[Google Drive API v3]
-        Others[Dropbox / Proton / Mega - Bientôt]
+        GDrive[Google Drive API v3 - Quota & Rotation]
+        Others[Dropbox / Proton Drive - Intégration en cours]
     end
 
     DB --> Scanner
     GamesList --> Dashboard
     SaveResolver --> Dashboard
-    Events --> AutoSyncHook
-    AutoSyncHook --> Archiver
-    Archiver <-->|Upload / Download OAuth2| GDrive
+    Events --> WatcherHook
+    WatcherHook --> Archiver
+    Archiver <-->|Upload auto & Restauration manuelle OAuth2| GDrive
+    StorageChecker --> Footer
 ```
 
 ---
@@ -112,6 +119,7 @@ flowchart TD
 
 ### Backend (Tauri v2 / Rust)
 - **Runtime** : [Tauri v2](https://tauri.app/)
+- **Allocateur mémoire** : [`mimalloc`](https://crates.io/crates/mimalloc)
 - **Accès base de données** : [`rusty-leveldb`](https://crates.io/crates/rusty-leveldb)
 - **Surveillance système** : [`sysinfo`](https://crates.io/crates/sysinfo)
 - **Réseau & Requêtes** : [`reqwest`](https://crates.io/crates/reqwest) (asynchrone avec `tokio`)
@@ -190,26 +198,31 @@ L'exécutable et l'installeur (MSI / EXE pour Windows, DEB / AppImage pour Linux
 | **Paramètres utilisateur** | `settings.json` (via `@tauri-apps/plugin-store`) |
 | **Base Hydra Launcher (Windows)** | `%APPDATA%\hydralauncher\hydra-db` |
 | **Base Hydra Launcher (Linux)** | `~/.config/hydralauncher/hydra-db` ou `~/.local/share/hydralauncher/hydra-db` |
-| **Cache Manifeste Ludusavi** | Dossier temporaire système (`temp_dir()/hydra_companion/ludusavi_manifest.yaml`) |
+| **Cache Manifeste Ludasavi** | Dossier temporaire système (`temp_dir()/hydra_companion/ludasavi_manifest.yaml`) |
 
 ---
 
 ## 🗺️ Roadmap
 
 - [x] Détection automatique des jeux installés via LevelDB Hydra.
-- [x] Intégration du catalogue communautaire Ludusavi YAML.
+- [x] Intégration du catalogue communautaire Ludasavi YAML.
 - [x] Récupération automatique des jaquettes Steam.
 - [x] Watcher de processus en temps réel (`sysinfo`).
 - [x] Synchronisation avec Google Drive (OAuth2 + dossier dédié).
+- [x] Politique de rotation et rétention (historique des 5 dernières sauvegardes par jeu).
+- [x] Modale de restauration d'une version de sauvegarde antérieure.
 - [x] Téléversement automatique différé (cooldown à la fermeture du jeu).
-- [x] Téléchargement périodique programmable (5/15/30 min).
-- [x] Tray Icon et notifications système de bureau.
+- [x] Téléchargement et restauration des sauvegardes à la demande (sécurité anti-écrasement).
+- [x] Jauge télémétrique de l'espace de stockage Cloud en temps réel.
+- [x] Écran de démarrage (Splash Screen) animé avec barre de chargement.
+- [x] System Tray (icône native, menu contextuel et gestion de fenêtre).
+- [x] Optimisation de l'empreinte mémoire via `mimalloc`.
 - [ ] Support complet de fournisseurs Cloud supplémentaires :
-  - [ ] Dropbox
-  - [ ] Proton Drive
+  - [x] Google Drive (complet)
+  - [ ] Dropbox (architecture et quota prêts, transfert en cours)
+  - [ ] Proton Drive (architecture et quota prêts, transfert en cours)
   - [ ] Mega / WebDAV / Serveur auto-hébergé (Nextcloud)
 - [ ] Édition manuelle du chemin de sauvegarde personnalisé par jeu.
-- [ ] Gestionnaire de versions de sauvegardes (historique des points de restauration).
 - [ ] Système de détection et résolution visuelle de conflits de sauvegarde.
 
 ---
@@ -220,7 +233,7 @@ Les contributions, suggestions et signalements de bugs sont les bienvenus ! N'h�
 
 Un grand merci aux projets open-source qui rendent cette application possible :
 - **[Hydra Launcher](https://github.com/hydralauncher/hydra)** pour l'incroyable lanceur de jeux.
-- **[Ludusavi](https://github.com/mtkennerly/ludusavi)** et sa communauté pour leur travail colossal sur le répertoire de sauvegardes de jeux vidéo.
+- **[Ludasavi](https://github.com/mtkennerly/ludasavi)** et sa communauté pour leur travail colossal sur le répertoire de sauvegardes de jeux vidéo.
 - **[Tauri](https://tauri.app/)** pour ce framework desktop ultra-léger et moderne.
 
 ---
