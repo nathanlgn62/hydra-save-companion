@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
-use sysinfo::System;
+use sysinfo::{ProcessRefreshKind, RefreshKind, System};
 use tauri::{AppHandle, Emitter};
 
 use crate::models::watcher::ProcessMonitorState;
@@ -14,10 +14,12 @@ pub struct GameClosedPayload {
 
 pub fn start_process_watcher(app_handle: AppHandle, state: Arc<ProcessMonitorState>) {
     std::thread::spawn(move || {
-        let mut sys = System::new_all();
+        let mut sys = System::new_with_specifics(
+            RefreshKind::new().with_processes(ProcessRefreshKind::new()),
+        );
 
         loop {
-            sys.refresh_processes();
+            sys.refresh_processes_specifics(ProcessRefreshKind::new());
 
             let monitored = state.monitored_games.lock().unwrap().clone();
             let mut current_running = state.current_running_game.lock().unwrap();

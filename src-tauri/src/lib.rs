@@ -6,6 +6,7 @@ mod utils;
 use funcs::watcher::start_process_watcher;
 
 use commands::cloud::download_game_save_from_drive;
+use commands::cloud::get_cloud_storage_info;
 use commands::cloud::login_cloud;
 use commands::cloud::upload_game_save_to_drive;
 use commands::game::check_game_sync_status;
@@ -39,15 +40,22 @@ pub fn run() {
             upload_game_save_to_drive,
             set_monitored_games,
             download_game_save_from_drive,
-            get_steam_cover
+            get_steam_cover,
+            get_cloud_storage_info
         ])
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Ouvrir", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-            let _tray = TrayIconBuilder::new()
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))
+                .ok()
+                .or_else(|| app.default_window_icon().cloned());
+
+            let mut builder = TrayIconBuilder::with_id("tray")
                 .menu(&menu)
+                .tooltip("Hydra Save Companion")
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
@@ -68,8 +76,13 @@ pub fn run() {
                             let _ = window.set_focus();
                         }
                     }
-                })
-                .build(app)?;
+                });
+
+            if let Some(icon) = tray_icon {
+                builder = builder.icon(icon);
+            }
+
+            let _tray = builder.build(app)?;
 
             let monitor_state = Arc::new(ProcessMonitorState {
                 monitored_games: Mutex::new(vec![]),
@@ -80,10 +93,10 @@ pub fn run() {
             let handle = app.handle().clone();
             start_process_watcher(handle, monitor_state);
 
-            // Préchargement asynchrone en arrière-plan du manifest Ludasavi
-            // pour éliminer tout temps d'attente lors de la première requête frontend
+            // Préchargement asynchrone du fichier de manifest sur disque
+            // (ne charge pas les 15 000 objets en RAM permanente)
             std::thread::spawn(|| {
-                let _ = funcs::ludasavi::get_cached_manifest();
+                let _ = funcs::ludasavi::preload_manifest_file();
             });
 
             Ok(())

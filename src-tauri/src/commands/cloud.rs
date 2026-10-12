@@ -228,3 +228,13 @@ pub async fn login_cloud(provider: String) -> Result<String, String> {
 
     Ok(format!("{}|{}", access_token, refresh_token))
 }
+
+#[tauri::command]
+pub async fn get_cloud_storage_info(
+    token: String,
+    provider: Option<String>,
+) -> Result<crate::models::cloud::CloudStorageInfo, String> {
+    let client = reqwest::Client::new();
+    let provider_name = provider.as_deref().unwrap_or("google-drive");
+    crate::funcs::cloud::get_cloud_storage_info(&client, &token, Some(provider_name)).await
+}

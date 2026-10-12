@@ -6,7 +6,7 @@ use crate::funcs::cloud::check_sync_google_drive;
 use crate::funcs::cloud::check_sync_proton_drive;
 use crate::funcs::hydra::expand_path;
 use crate::funcs::hydra::get_latest_modified_time;
-use crate::funcs::ludasavi::get_cached_manifest;
+use crate::funcs::ludasavi::find_game_in_manifest;
 use crate::funcs::ludasavi::resolve_ludasavi_placeholders;
 use crate::funcs::ludasavi::resolve_path_pattern;
 use crate::funcs::steam::get_steamgriddb_cover;
@@ -65,39 +65,10 @@ pub async fn get_game_save_info(
         };
     }
 
-    match get_cached_manifest() {
-        Ok(manifest) => {
-            let title_lower = title.to_lowercase();
-            let game_entry = manifest
-                .games
-                .get(&title)
-                .or_else(|| {
-                    manifest.games.iter().find_map(|(k, v)| {
-                        if k.to_lowercase().contains(&title_lower)
-                            || title_lower.contains(&k.to_lowercase())
-                        {
-                            Some(v)
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .or_else(|| {
-                    if let Some(ref id) = app_id {
-                        if let Ok(parsed_id) = id.parse::<u64>() {
-                            return manifest
-                                .games
-                                .values()
-                                .find(|g| g.steam.as_ref().and_then(|s| s.id) == Some(parsed_id));
-                        }
-                    }
-                    None
-                });
-
-            if let Some(game) = game_entry {
-                println!("[DEBUG] Jeu trouvé dans le manifeste Ludasavi !");
-                if let Some(ref files) = game.files {
-                    let mut best_resolved_str: Option<String> = None;
+    if let Some(game) = find_game_in_manifest(&title, app_id.as_deref()) {
+        println!("[DEBUG] Jeu trouvé dans le manifeste Ludasavi !");
+        if let Some(ref files) = game.files {
+            let mut best_resolved_str: Option<String> = None;
 
                     for (raw_path, rule) in files {
                         let is_windows = rule.when.as_ref().map_or(true, |w| {
@@ -185,11 +156,6 @@ pub async fn get_game_save_info(
             } else {
                 println!("[DEBUG] Jeu introuvable dans le manifeste Ludasavi.");
             }
-        }
-        Err(e) => {
-            println!("[DEBUG] Erreur chargement manifest Ludasavi: {}", e);
-        }
-    }
 
         println!("[DEBUG] Aucun chemin valide trouvé via le manifeste.");
         SaveInfo {

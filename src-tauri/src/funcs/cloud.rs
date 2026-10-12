@@ -1,3 +1,4 @@
+use crate::models::cloud::CloudStorageInfo;
 use crate::models::sync::{RemoteBackupInfo, SyncStatusResult};
 use crate::utils::utils::compare_and_build_result;
 use reqwest;
@@ -988,4 +989,199 @@ pub async fn download_from_google_drive(
         .map_err(|e| e.to_string())?
         .to_vec();
     Ok((zip_bytes, drive_system_time))
+}
+
+pub fn format_bytes(bytes: u64) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = KB * 1024.0;
+    const GB: f64 = MB * 1024.0;
+    const TB: f64 = GB * 1024.0;
+
+    let b = bytes as f64;
+    if b >= TB {
+        let v = b / TB;
+        if (v.fract() < 0.05 || v.fract() > 0.95) && v < 100.0 {
+            format!("{:.0} To", v.round())
+        } else {
+            format!("{:.1} To", v)
+        }
+    } else if b >= GB {
+        let v = b / GB;
+        if (v.fract() < 0.05 || v.fract() > 0.95) && v < 100.0 {
+            format!("{:.0} Go", v.round())
+        } else {
+            format!("{:.1} Go", v)
+        }
+    } else if b >= MB {
+        let v = b / MB;
+        if (v.fract() < 0.05 || v.fract() > 0.95) && v < 100.0 {
+            format!("{:.0} Mo", v.round())
+        } else {
+            format!("{:.1} Mo", v)
+        }
+    } else if b >= KB {
+        format!("{:.0} Ko", (b / KB).round())
+    } else {
+        format!("{} o", bytes)
+    }
+}
+
+pub async fn get_cloud_storage_info(
+    client: &reqwest::Client,
+    token_store: &str,
+    provider: Option<&str>,
+) -> Result<CloudStorageInfo, String> {
+    let p = provider.unwrap_or("google-drive").to_lowercase();
+
+    match p.as_str() {
+        "google-drive" | "gdrive" | "google" => {
+            let access_token =
+                get_valid_access_token(client, token_store, Some("google-drive")).await?;
+            let url = "https://www.googleapis.com/drive/v3/about?fields=storageQuota";
+            let res = client
+                .get(url)
+                .bearer_auth(&access_token)
+                .send()
+                .await
+                .map_err(|e| format!("Erreur réseau Google Drive (quota) : {}", e))?;
+
+            if !res.status().is_success() {
+                let err_text = res.text().await.unwrap_or_default();
+                return Err(format!("Erreur API Google Drive (quota) : {}", err_text));
+            }
+
+            let json: serde_json::Value = res
+                .json()
+                .await
+                .map_err(|e| format!("Erreur parsing JSON quota Google Drive : {}", e))?;
+
+            let quota = json
+                .get("storageQuota")
+                .ok_or_else(|| "Section storageQuota manquante".to_string())?;
+
+            let used_bytes = quota
+                .get("usage")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| quota.get("usage").and_then(|v| v.as_u64()))
+                .unwrap_or(0);
+
+            let total_bytes = quota
+                .get("limit")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| quota.get("limit").and_then(|v| v.as_u64()));
+
+            let free_bytes = total_bytes.map(|tot| tot.saturating_sub(used_bytes));
+
+            Ok(CloudStorageInfo {
+                provider: "google-drive".to_string(),
+                provider_name: "Google Drive".to_string(),
+                used_bytes,
+                total_bytes,
+                used_formatted: format_bytes(used_bytes),
+                total_formatted: total_bytes.map(format_bytes),
+                free_bytes,
+                free_formatted: free_bytes.map(format_bytes),
+            })
+        }
+        "dropbox" => {
+            let access_token = get_valid_access_token(client, token_store, Some("dropbox")).await?;
+            let url = "https://api.dropboxapi.com/2/users/get_space_usage";
+            let res = client
+                .post(url)
+                .bearer_auth(&access_token)
+                .header("Content-Type", "application/json")
+                .body("null")
+                .send()
+                .await
+                .map_err(|e| format!("Erreur réseau Dropbox (quota) : {}", e))?;
+
+            if !res.status().is_success() {
+                let err_text = res.text().await.unwrap_or_default();
+                return Err(format!("Erreur API Dropbox (quota) : {}", err_text));
+            }
+
+            let json: serde_json::Value = res
+                .json()
+                .await
+                .map_err(|e| format!("Erreur parsing JSON quota Dropbox : {}", e))?;
+
+            let used_bytes = json.get("used").and_then(|v| v.as_u64()).unwrap_or(0);
+
+            let total_bytes = json
+                .get("allocation")
+                .and_then(|a| {
+                    a.get("allocated")
+                        .or_else(|| a.get("individual").and_then(|i| i.get("allocated")))
+                })
+                .and_then(|v| v.as_u64());
+
+            let free_bytes = total_bytes.map(|tot| tot.saturating_sub(used_bytes));
+
+            Ok(CloudStorageInfo {
+                provider: "dropbox".to_string(),
+                provider_name: "Dropbox".to_string(),
+                used_bytes,
+                total_bytes,
+                used_formatted: format_bytes(used_bytes),
+                total_formatted: total_bytes.map(format_bytes),
+                free_bytes,
+                free_formatted: free_bytes.map(format_bytes),
+            })
+        }
+        "proton-drive" | "proton" => {
+            let access_token =
+                get_valid_access_token(client, token_store, Some("proton-drive")).await?;
+            let url = "https://mail-api.proton.me/drive/volumes";
+            let res = client
+                .get(url)
+                .bearer_auth(&access_token)
+                .header("x-pm-appversion", "Other")
+                .header("x-pm-locale", "fr_FR")
+                .send()
+                .await
+                .map_err(|e| format!("Erreur réseau Proton Drive (quota) : {}", e))?;
+
+            if res.status().is_success() {
+                if let Ok(json) = res.json::<serde_json::Value>().await {
+                    if let Some(vol) = json
+                        .get("Volumes")
+                        .and_then(|v| v.as_array())
+                        .and_then(|a| a.first())
+                    {
+                        let used_bytes = vol.get("UsedSpace").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let total_bytes = vol.get("MaxSpace").and_then(|v| v.as_u64());
+                        let free_bytes = total_bytes.map(|tot| tot.saturating_sub(used_bytes));
+
+                        return Ok(CloudStorageInfo {
+                            provider: "proton-drive".to_string(),
+                            provider_name: "Proton Drive".to_string(),
+                            used_bytes,
+                            total_bytes,
+                            used_formatted: format_bytes(used_bytes),
+                            total_formatted: total_bytes.map(format_bytes),
+                            free_bytes,
+                            free_formatted: free_bytes.map(format_bytes),
+                        });
+                    }
+                }
+            }
+
+            Ok(CloudStorageInfo {
+                provider: "proton-drive".to_string(),
+                provider_name: "Proton Drive".to_string(),
+                used_bytes: 0,
+                total_bytes: None,
+                used_formatted: "0 o".to_string(),
+                total_formatted: None,
+                free_bytes: None,
+                free_formatted: None,
+            })
+        }
+        other => Err(format!(
+            "Fournisseur Cloud '{}' non supporté pour les informations de quota",
+            other
+        )),
+    }
 }
