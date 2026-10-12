@@ -1,4 +1,5 @@
 use std::path::Path;
+use tauri::Manager;
 use tauri_plugin_oauth::start_with_config;
 use tauri_plugin_oauth::OauthConfig;
 use url::Url;
@@ -108,7 +109,7 @@ pub async fn download_game_save_from_drive(
 }
 
 #[tauri::command]
-pub async fn login_cloud(provider: String) -> Result<String, String> {
+pub async fn login_cloud(app: tauri::AppHandle, provider: String) -> Result<String, String> {
     let (client_id_env, client_secret_env, auth_base_url, token_url, scope) = match provider
         .as_str()
     {
@@ -157,9 +158,71 @@ pub async fn login_cloud(provider: String) -> Result<String, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let tx_cell = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
 
+    let html_response = r#"<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <title>Connexion réussie</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #020617;
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+        .card {
+            background-color: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 36px 44px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            max-width: 440px;
+        }
+        .icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 18px auto;
+            font-size: 26px;
+            font-weight: bold;
+        }
+        h1 { font-size: 20px; margin: 0 0 10px 0; color: #f1f5f9; }
+        p { font-size: 14px; margin: 0; color: #94a3b8; line-height: 1.5; }
+        .badge { margin-top: 18px; display: inline-block; padding: 6px 14px; background: #1e293b; border-radius: 8px; font-size: 12px; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">✓</div>
+        <h1>Connexion réussie !</h1>
+        <p>Votre compte a été connecté avec succès à <strong>Hydra Save Companion</strong>.</p>
+        <div class="badge">Retour automatique sur l'application...</div>
+    </div>
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.open('', '_self', '');
+                window.close();
+            }, 300);
+        };
+    </script>
+</body>
+</html>"#;
+
     let config = OauthConfig {
         ports: Some(vec![8000, 8001, 8002]),
-        response: Some("Authentification réussie ! Vous pouvez fermer cette page et retourner sur l'application.".into()),
+        response: Some(html_response.into()),
         ..Default::default()
     };
 
@@ -189,6 +252,14 @@ pub async fn login_cloud(provider: String) -> Result<String, String> {
     open::that(&auth_url).map_err(|e| e.to_string())?;
 
     let url_string = rx.await.map_err(|e| e.to_string())?;
+
+    // Refocus immédiat de la fenêtre de l'application dès réception du code de redirection
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+
     let parsed_url = Url::parse(&url_string).map_err(|e| e.to_string())?;
     let code = parsed_url
         .query_pairs()
@@ -225,6 +296,12 @@ pub async fn login_cloud(provider: String) -> Result<String, String> {
         .get("refresh_token")
         .and_then(|t| t.as_str())
         .unwrap_or("");
+
+    // Assure que l'application reste bien au premier plan une fois les jetons obtenus
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 
     Ok(format!("{}|{}", access_token, refresh_token))
 }
