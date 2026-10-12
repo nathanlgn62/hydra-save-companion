@@ -13,14 +13,21 @@ import {
 import { parseSaveDate } from "../utils/date";
 import { useDesktopNotification } from "./use-desktop-notification";
 import { useSettings } from "./use-settings";
+import { useCloudStatus } from "../stores/cloud-store";
 
 // Fetch global de tous les jeux
 export function useGames() {
   const { settings } = useSettings();
   const isDemo = !!settings?.demoMode;
+  const { isDriveConnected, cloudProvider } = useCloudStatus();
+
+  const storedToken =
+    localStorage.getItem("cloud_token") ||
+    localStorage.getItem("gdrive_token") ||
+    "";
 
   return useQuery({
-    queryKey: ["games", isDemo],
+    queryKey: ["games", isDemo, isDriveConnected, cloudProvider, storedToken],
     queryFn: async () => {
       let installedGames: HydraGame[] = [];
       if (isDemo) {
@@ -33,10 +40,6 @@ export function useGames() {
           installedGames = [];
         }
       }
-
-      const storedToken =
-        localStorage.getItem("cloud_token") ||
-        localStorage.getItem("gdrive_token");
 
       const gamesWithSaves = await Promise.all(
         installedGames.map(async (game) => {
@@ -54,7 +57,7 @@ export function useGames() {
 
           let remoteDate = "Jamais";
           let backups: RemoteBackupInfo[] = [];
-          if (storedToken && saveInfo?.resolvedPath) {
+          if (isDriveConnected && storedToken && saveInfo?.resolvedPath) {
             try {
               const provider =
                 localStorage.getItem("cloud_provider") || "google-drive";

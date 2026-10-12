@@ -3,6 +3,7 @@ import {
   Clock,
   Cloud,
   CloudDownload,
+  CloudOff,
   CloudUpload,
   FolderOpen,
   Gamepad,
@@ -17,6 +18,7 @@ import {
   useGameSyncStatus,
   useUploadSave,
 } from "../../hooks/use-games";
+import { useCloudStatus } from "../../stores/cloud-store";
 import { useIsGameDownloading } from "../../stores/game-store";
 import { HydraGame } from "../../types";
 import { formatDate } from "../../utils/date";
@@ -34,6 +36,7 @@ export default function GameCard({ game }: GameCardProps) {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isBackupsOpen, setIsBackupsOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const { isDriveConnected } = useCloudStatus();
 
   useEffect(() => {
     setImgError(false);
@@ -43,22 +46,26 @@ export default function GameCard({ game }: GameCardProps) {
   const downloadMutation = useDownloadSave();
   const syncDirection = useGameSyncStatus(
     game.lastLocalSave,
-    game.lastRemoteSave,
+    isDriveConnected ? game.lastRemoteSave : null,
   );
   const isAutoDownloading = useIsGameDownloading(game.title);
 
   const badgeConfig = getSyncBadgeConfig(
     game.ludasaviPathExists,
     game.lastLocalSave,
-    game.lastRemoteSave,
+    isDriveConnected ? game.lastRemoteSave : null,
+    isDriveConnected,
   );
 
-  const hasBackups = Boolean(game.backups && game.backups.length > 0);
+  const hasBackups = Boolean(
+    isDriveConnected && game.backups && game.backups.length > 0,
+  );
   const countdown = null;
   const clearCountdown = () => {};
 
   const handleSync = () => {
     if (
+      !isDriveConnected ||
       !game.savePath ||
       syncMutation.isPending ||
       downloadMutation.isPending
@@ -91,6 +98,7 @@ export default function GameCard({ game }: GameCardProps) {
     syncMutation.isPending || downloadMutation.isPending || isAutoDownloading;
 
   const isSyncDisabled =
+    !isDriveConnected ||
     isPending ||
     !game.savePath ||
     (countdown === null &&
@@ -159,7 +167,7 @@ export default function GameCard({ game }: GameCardProps) {
                   <span>Distante :</span>
                 </span>
                 <span className="text-slate-300 font-mono text-[10px]">
-                  {formatDate(game.lastRemoteSave)}
+                  {!isDriveConnected ? "-" : formatDate(game.lastRemoteSave)}
                 </span>
               </div>
             </div>
@@ -186,7 +194,9 @@ export default function GameCard({ game }: GameCardProps) {
                 onClick={() => setIsBackupsOpen(true)}
                 disabled={!hasBackups}
                 title={
-                  hasBackups
+                  !isDriveConnected
+                    ? "Connectez un service cloud pour voir l'historique"
+                    : hasBackups
                     ? `Voir les sauvegardes cloud (${game.backups!.length})`
                     : "Aucune sauvegarde cloud disponible"
                 }
@@ -209,9 +219,19 @@ export default function GameCard({ game }: GameCardProps) {
               type="button"
               onClick={handleSync}
               disabled={isSyncDisabled}
+              title={
+                !isDriveConnected
+                  ? "Connectez un service cloud pour synchroniser"
+                  : undefined
+              }
               className="w-full h-8 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-medium text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-900/30 transition-all cursor-pointer"
             >
-              {isPending ? (
+              {!isDriveConnected ? (
+                <>
+                  <CloudOff className="w-3.5 h-3.5 shrink-0 text-slate-300" />
+                  <span className="truncate">Cloud non connecté</span>
+                </>
+              ) : isPending ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                   <span className="truncate">

@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Cloud,
   CloudDownload,
+  CloudOff,
   CloudUpload,
 } from "lucide-react";
 import { SaveStatusFilter, SyncBadgeConfig, SyncBadgeVariant } from "../types";
@@ -14,6 +15,7 @@ export function getSyncBadgeConfig(
   ludasaviPathExists?: boolean,
   lastLocalSave?: string | null,
   lastRemoteSave?: string | null,
+  isCloudConnected: boolean = true,
 ): SyncBadgeConfig {
   if (!ludasaviPathExists) {
     return {
@@ -26,6 +28,27 @@ export function getSyncBadgeConfig(
   }
 
   const localDate = parseSaveDate(lastLocalSave);
+
+  // Si aucun service Cloud n'est connecté
+  if (!isCloudConnected) {
+    if (!localDate) {
+      return {
+        label: "Aucune sauvegarde",
+        variant: "neutral",
+        Icon: Cloud,
+        description: "Aucun fichier local n'a été détecté.",
+      };
+    }
+
+    return {
+      label: "Non synchronisé",
+      variant: "neutral",
+      Icon: CloudOff,
+      description:
+        "Sauvegarde locale présente. Connectez un service Cloud pour synchroniser.",
+    };
+  }
+
   const remoteDate = parseSaveDate(lastRemoteSave);
 
   // Si ni le local ni le cloud n'ont de sauvegarde
@@ -103,11 +126,13 @@ export function getGameStatusCategory(
   ludasaviPathExists?: boolean,
   lastLocalSave?: string | null,
   lastRemoteSave?: string | null,
+  isCloudConnected: boolean = true,
 ): SaveStatusFilter {
   const badge = getSyncBadgeConfig(
     ludasaviPathExists,
     lastLocalSave,
     lastRemoteSave,
+    isCloudConnected,
   );
 
   switch (badge.label) {
@@ -119,6 +144,7 @@ export function getGameStatusCategory(
       return "cloud-newer";
     case "À télécharger":
       return "to-download";
+    case "Non synchronisé":
     case "Jamais sync":
       return "never-synced";
     case "Aucune sauvegarde":

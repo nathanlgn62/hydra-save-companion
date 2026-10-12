@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { getStoredStatus } from "../utils/storage";
 import { CloudStatus } from "../types";
 
+import { queryClient } from "../utils/query-client";
+import { HydraGame } from "../types";
+
 type CloudListener = (status: CloudStatus) => void;
 
 const listeners = new Set<CloudListener>();
@@ -19,6 +22,11 @@ export const loginCloud = async (provider: string) => {
     if (tokenResponse) {
       localStorage.setItem("cloud_provider", provider);
       localStorage.setItem("cloud_token", tokenResponse);
+
+      // Invalide le cache React Query pour charger les données cloud fraîches
+      queryClient.invalidateQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
+
       notifyListeners();
     }
   } catch (err) {
@@ -31,6 +39,20 @@ export const disconnectCloud = () => {
   localStorage.removeItem("cloud_token");
   localStorage.removeItem("cloud_provider");
   localStorage.removeItem("gdrive_token");
+
+  // Réinitialise immédiatement en mémoire les informations distantes des jeux
+  queryClient.setQueriesData<HydraGame[]>({ queryKey: ["games"] }, (oldGames) => {
+    if (!oldGames) return oldGames;
+    return oldGames.map((game) => ({
+      ...game,
+      lastRemoteSave: "Jamais",
+      backups: [],
+    }));
+  });
+
+  // Invalide les requêtes pour assurer une synchronisation propre
+  queryClient.invalidateQueries({ queryKey: ["games"] });
+  queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
 
   notifyListeners();
 };

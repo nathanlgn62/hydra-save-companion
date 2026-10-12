@@ -10,6 +10,7 @@ import ToastContainer from "./components/toast/toast-container";
 import { useGames } from "./hooks/use-games";
 import { useSettings } from "./hooks/use-settings";
 import { useWatcher } from "./hooks/use-watcher";
+import { useCloudStatus } from "./stores/cloud-store";
 import { SaveStatusFilter } from "./types";
 import { getGameStatusCategory } from "./utils/sync-badge";
 
@@ -21,6 +22,7 @@ export default function App() {
     isFetching,
   } = useGames();
   const { updateSettings } = useSettings();
+  const { isDriveConnected } = useCloudStatus();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SaveStatusFilter>("all");
@@ -37,11 +39,12 @@ export default function App() {
           g.ludasaviPathExists,
           g.lastLocalSave,
           g.lastRemoteSave,
+          isDriveConnected,
         ),
       );
     });
     return map;
-  }, [games]);
+  }, [games, isDriveConnected]);
 
   // Compteurs par statut
   const statusCounts = useMemo(() => {
