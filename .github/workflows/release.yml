@@ -55,11 +55,12 @@ jobs:
         run: pnpm install
 
       - name: Fetch secrets from Infisical
-        uses: Infisical/secrets-action@v1.0.7
+        uses: Infisical/secrets-action@v1
         with:
+          method: universal-auth
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          project-slug: "02a4dce0-abf2-48b2-8e99-ba7864be08ef"
+          project-slug: "hydra-save-companion"
           env-slug: "dev"
 
       - name: Build and Release Tauri App
