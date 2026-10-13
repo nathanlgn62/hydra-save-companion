@@ -38,6 +38,7 @@ tauri-plugin-store = "2.5.0"
 serde_yaml = "0.9.34"
 tauri-plugin-notification = "2.5.1"
 mimalloc = { version = "0.1", default-features = false }
+tauri-plugin-autostart = "2.7.0"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

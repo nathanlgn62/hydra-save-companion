@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { Store } from "@tauri-apps/plugin-store";
 import { UserSettings } from "../types";
 
@@ -24,25 +25,42 @@ async function getStore() {
 export function useSettings() {
   const queryClient = useQueryClient();
 
-  // 1. Requête unique et partagée pour lire les settings
+  // 1. Shared query to read settings and ensure OS autostart matches user preference
   const { data: settings = DEFAULT_SETTINGS, isLoading: loading } = useQuery({
     queryKey: ["settings"],
     queryFn: async (): Promise<UserSettings> => {
       const store = await getStore();
       const saved = await store.get<UserSettings>("user_prefs");
 
+      let currentSettings = DEFAULT_SETTINGS;
       if (saved) {
-        return { ...DEFAULT_SETTINGS, ...saved };
+        currentSettings = { ...DEFAULT_SETTINGS, ...saved };
+      } else {
+        await store.set("user_prefs", DEFAULT_SETTINGS);
+        await store.save();
       }
 
-      await store.set("user_prefs", DEFAULT_SETTINGS);
-      await store.save();
-      return DEFAULT_SETTINGS;
+      // In production builds, check real OS autostart state and sync if needed.
+      // In development (dev mode), skip to avoid registering debug binary with devUrl (localhost:1420).
+      if (import.meta.env.PROD) {
+        try {
+          const osAutostartEnabled = await isEnabled();
+          if (currentSettings.autoStartWithSystem && !osAutostartEnabled) {
+            await enable();
+          } else if (!currentSettings.autoStartWithSystem && osAutostartEnabled) {
+            await disable();
+          }
+        } catch (err) {
+          console.warn("Failed to query or apply OS autostart state:", err);
+        }
+      }
+
+      return currentSettings;
     },
-    staleTime: Infinity, // Garde les settings en mémoire sans refetch inutile
+    staleTime: Infinity,
   });
 
-  // 2. Mutation réactive pour sauvegarder et notifier toute l'UI
+  // 2. Reactive mutation to update settings and apply OS changes
   const mutation = useMutation({
     mutationFn: async (newPartialSettings: Partial<UserSettings>) => {
       const currentSettings =
@@ -52,6 +70,23 @@ export function useSettings() {
         ...currentSettings,
         ...newPartialSettings,
       };
+
+      // If autoStartWithSystem changed, apply to OS in production builds
+      if (
+        import.meta.env.PROD &&
+        newPartialSettings.autoStartWithSystem !== undefined &&
+        newPartialSettings.autoStartWithSystem !== currentSettings.autoStartWithSystem
+      ) {
+        try {
+          if (newPartialSettings.autoStartWithSystem) {
+            await enable();
+          } else {
+            await disable();
+          }
+        } catch (err) {
+          console.error("Failed to update OS autostart:", err);
+        }
+      }
 
       const store = await getStore();
       await store.set("user_prefs", updatedSettings);
