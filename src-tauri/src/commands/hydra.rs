@@ -42,7 +42,7 @@ pub async fn get_installed_games() -> Result<Vec<HydraGame>, String> {
                     let has_executable = game
                         .executable_path
                         .as_ref()
-                        .map_or(false, |path| !path.trim().is_empty());
+                        .is_some_and(|path| !path.trim().is_empty());
 
                     if is_active && has_executable && !is_steam_import {
                         games.push(game);

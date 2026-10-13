@@ -108,6 +108,20 @@ flowchart TD
 
 ---
 
+### 1. Multi-Cloud & Authentification Unifiée
+- **Flux unifié** : L'authentification OAuth est gérée via un serveur local de loopback (`tauri-plugin-oauth` sur `http://localhost:8000/`) qui intercepte automatiquement les codes d'autorisation.
+- **Google Drive** : Entièrement implémenté (rafraîchissement automatique des tokens, création du dossier, upload/download, rotation 5 sauvegardes, jauge d'espace).
+- **Dropbox** : Entièrement implémenté (OAuth2 avec refresh tokens, création du dossier, téléversement avec horodatage client_modified précis, téléchargement, télémétrie de quota).
+- **Proton Drive** : Désactivé dans l'UI (en l'absence d'API OAuth publique et en raison du chiffrement SRP/PGP propriétaire, l'utilisation du dossier local synchronisé Proton Drive est recommandée).
+
+### 2. Télémétrie Cloud en Direct
+- Affichage en temps réel dans le footer de l'espace de stockage occupé, total et disponible sur votre Cloud connecté (Google Drive, Dropbox) avec micro-jauge ergonomique réactive.
+
+### 3. Système de Signalement Intégré
+- Modale interactive permettant de signaler un problème d'emplacement de sauvegarde ou de synchronisation, avec envoi direct vers l'API de rapport (et transmission par email).
+
+---
+
 ## 🛠️ Stack Technique
 
 ### Frontend
@@ -115,6 +129,7 @@ flowchart TD
 - **Build tool** : [Vite](https://vitejs.dev/)
 - **Styles** : [Tailwind CSS v4](https://tailwindcss.com/)
 - **Gestion d'état & Cache** : [@tanstack/react-query v5](https://tanstack.com/query/latest)
+- **Tests unitaires** : [Vitest](https://vitest.dev/)
 - **Icônes** : [Lucide React](https://lucide.dev/)
 
 ### Backend (Tauri v2 / Rust)
@@ -149,24 +164,17 @@ cd hydra-save-companion
 pnpm install
 ```
 
-### 3. Configurer l'authentification Cloud
-Le projet utilise OAuth2 pour se connecter aux services Cloud. Pour Google Drive, vous devez créer des identifiants dans la [Google Cloud Console](https://console.cloud.google.com/) (Application de type Desktop / Bureau avec redirection sur `http://localhost:8000`).
-
-Exportez vos clés dans votre environnement ou créez un fichier `.env` :
+### 3. Lancer les tests
 ```bash
-export HSC_GC_ID="votre_google_client_id.apps.googleusercontent.com"
-export HSC_GS="votre_google_client_secret"
+# Tests unitaires Frontend (Vitest)
+pnpm test
+
+# Tests unitaires Backend (Rust)
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
-*(Le projet intègre également le support d'[Infisical](https://infisical.com/) via `infisical run --env=dev -- tauri dev`)*.
 
 ### 4. Lancer en mode développement
 ```bash
-pnpm tauri dev
-```
-*(Ou avec pnpm directement si vos variables sont chargées)* :
-```bash
-pnpm dev
-# Dans un second terminal pour Tauri :
 pnpm tauri dev
 ```
 
@@ -184,10 +192,9 @@ L'exécutable et l'installeur (MSI / EXE pour Windows, DEB / AppImage pour Linux
 | :--- | :--- | :---: |
 | `HSC_GC_ID` | Client ID Google Cloud OAuth 2.0 | **Oui** (pour Google Drive) |
 | `HSC_GS` | Client Secret Google Cloud OAuth 2.0 | **Oui** (pour Google Drive) |
-| `HSC_DBX_ID` | App Key Dropbox API | Optionnel |
-| `HSC_DBX_SECRET` | App Secret Dropbox API | Optionnel |
-| `HSC_PROTON_ID` | Client ID Proton API | Optionnel |
-| `HSC_PROTON_SECRET` | Client Secret Proton API | Optionnel |
+| `HSC_DBX_ID` | App Key Dropbox API | **Oui** (pour Dropbox) |
+| `HSC_DBX_SECRET` | App Secret Dropbox API | **Oui** (pour Dropbox) |
+| `VITE_REPORT_API_URL` | URL de l'API de signalement (rapport de bugs/saves) | Optionnel (défaut: `https://nathandev.fr/api/hydra-save-companion/report`) |
 
 ---
 

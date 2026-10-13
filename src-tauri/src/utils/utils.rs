@@ -172,3 +172,100 @@ pub fn restore_save_from_zip(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Duration, Utc};
+
+    #[test]
+    fn test_compare_and_build_result_local_newer() {
+        let now = Utc::now();
+        let local_time = (now, "13/10/2026 10:00".to_string());
+        let cloud_time = now - Duration::hours(2);
+
+        let result = compare_and_build_result(
+            Some(local_time),
+            cloud_time,
+            "13/10/2026 08:00".to_string(),
+            vec![],
+        )
+        .unwrap();
+
+        assert_eq!(result.status, "LocalNewer");
+        assert_eq!(result.local_time, "13/10/2026 10:00");
+        assert_eq!(result.cloud_time, "13/10/2026 08:00");
+    }
+
+    #[test]
+    fn test_compare_and_build_result_cloud_newer() {
+        let now = Utc::now();
+        let local_time = (now - Duration::hours(3), "13/10/2026 07:00".to_string());
+        let cloud_time = now;
+
+        let result = compare_and_build_result(
+            Some(local_time),
+            cloud_time,
+            "13/10/2026 10:00".to_string(),
+            vec![],
+        )
+        .unwrap();
+
+        assert_eq!(result.status, "CloudNewer");
+    }
+
+    #[test]
+    fn test_compare_and_build_result_up_to_date() {
+        let now = Utc::now();
+        let local_time = (now, "13/10/2026 10:00".to_string());
+        let cloud_time = now;
+
+        let result = compare_and_build_result(
+            Some(local_time),
+            cloud_time,
+            "13/10/2026 10:00".to_string(),
+            vec![],
+        )
+        .unwrap();
+
+        assert_eq!(result.status, "UpToDate");
+    }
+
+    #[test]
+    fn test_compare_and_build_result_no_local_info() {
+        let now = Utc::now();
+        let result = compare_and_build_result(
+            None,
+            now,
+            "13/10/2026 10:00".to_string(),
+            vec![],
+        )
+        .unwrap();
+
+        assert_eq!(result.status, "CloudNewer");
+        assert_eq!(result.local_time, "Aucune");
+    }
+
+    #[test]
+    fn test_zip_create_and_restore_roundtrip() {
+        let temp_dir = std::env::temp_dir().join("hydra_test_save_roundtrip");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let save_file = temp_dir.join("save1.dat");
+        fs::write(&save_file, b"test save game data content").unwrap();
+
+        let zip_bytes = create_save_zip(&temp_dir).unwrap();
+        assert!(!zip_bytes.is_empty());
+
+        let restore_dir = temp_dir.join("restored");
+        let now = std::time::SystemTime::now();
+        restore_save_from_zip(zip_bytes, restore_dir.to_str().unwrap(), now).unwrap();
+
+        let restored_file = restore_dir.join("save1.dat");
+        assert!(restored_file.exists());
+        assert_eq!(fs::read(restored_file).unwrap(), b"test save game data content");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+}

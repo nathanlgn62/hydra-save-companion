@@ -768,9 +768,10 @@ pub async fn upload_to_proton_drive(
 
     match api_res {
         Ok(res) if res.status().is_success() => {
-            Ok(format!(
+            Ok(
                 "Session Proton Drive active. (Pour le téléversement complet, le client Proton Drive de bureau est recommandé afin d'appliquer le chiffrement E2E)."
-            ))
+                    .to_string(),
+            )
         }
         Ok(res) => {
             let err_text = res.text().await.unwrap_or_default();
@@ -943,7 +944,7 @@ pub async fn download_from_google_drive(
     };
 
     let meta_res = client
-        .get(&format!(
+        .get(format!(
             "https://www.googleapis.com/drive/v3/files/{}?fields=modifiedTime",
             file_id
         ))

@@ -71,7 +71,7 @@ pub async fn get_game_save_info(
             let mut best_resolved_str: Option<String> = None;
 
                     for (raw_path, rule) in files {
-                        let is_windows = rule.when.as_ref().map_or(true, |w| {
+                        let is_windows = rule.when.as_ref().is_none_or(|w| {
                             w.iter().any(|c| c.os.as_deref() == Some("windows"))
                         });
 
