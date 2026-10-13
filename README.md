@@ -94,7 +94,7 @@ flowchart TD
 
     subgraph CloudStorage ["Stockage Cloud"]
         GDrive[Google Drive API v3 - Quota & Rotation]
-        Others[Dropbox / Proton Drive - Intégration en cours]
+        Dropbox[Dropbox API v2 - Quota & Synchronisation]
     end
 
     DB --> Scanner
@@ -216,6 +216,7 @@ L'exécutable et l'installeur (MSI / EXE pour Windows, DEB / AppImage pour Linux
 - [x] Récupération automatique des jaquettes Steam.
 - [x] Watcher de processus en temps réel (`sysinfo`).
 - [x] Synchronisation avec Google Drive (OAuth2 + dossier dédié).
+- [x] Synchronisation avec Dropbox (OAuth2 + dossier dédié).
 - [x] Politique de rotation et rétention (historique des 5 dernières sauvegardes par jeu).
 - [x] Modale de restauration d'une version de sauvegarde antérieure.
 - [x] Téléversement automatique différé (cooldown à la fermeture du jeu).
@@ -224,13 +225,8 @@ L'exécutable et l'installeur (MSI / EXE pour Windows, DEB / AppImage pour Linux
 - [x] Écran de démarrage (Splash Screen) animé avec barre de chargement.
 - [x] System Tray (icône native, menu contextuel et gestion de fenêtre).
 - [x] Optimisation de l'empreinte mémoire via `mimalloc`.
-- [ ] Support complet de fournisseurs Cloud supplémentaires :
-  - [x] Google Drive (complet)
-  - [ ] Dropbox (architecture et quota prêts, transfert en cours)
-  - [ ] Proton Drive (architecture et quota prêts, transfert en cours)
+- [ ] Fournisseurs Cloud supplémentaires :
   - [ ] Mega / WebDAV / Serveur auto-hébergé (Nextcloud)
-- [ ] Édition manuelle du chemin de sauvegarde personnalisé par jeu.
-- [ ] Système de détection et résolution visuelle de conflits de sauvegarde.
 
 ---
 
