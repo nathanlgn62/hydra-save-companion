@@ -38,15 +38,15 @@ export default function CloudProviderModal({
       id: "mega",
       name: "Mega",
       available: false,
-      badge: "Bientôt",
+      badge: "Soon",
       color: "text-red-400/50 border-red-500/10 opacity-60 cursor-not-allowed",
     },
     {
       id: "proton-drive",
       name: "Proton Drive",
       available: false,
-      badge: "Indisponible",
-      subtitle: "Pas d'API OAuth publique",
+      badge: "Unavailable",
+      subtitle: "No public OAuth API",
       color:
         "text-purple-400/50 border-purple-500/10 opacity-60 cursor-not-allowed",
     },
@@ -70,7 +70,7 @@ export default function CloudProviderModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
             <Cloud className="w-4 h-4 text-indigo-400" />
-            Choisir un Cloud
+            Choose a Cloud Provider
           </h2>
           <button
             type="button"
@@ -83,8 +83,7 @@ export default function CloudProviderModal({
 
         <div className="p-6 space-y-3 flex-1 overflow-y-auto">
           <p className="text-xs text-slate-400 mb-4">
-            Sélectionne le service de stockage cloud que tu souhaites connecter
-            pour synchroniser tes sauvegardes:
+            Select the cloud storage service you want to connect to synchronize your saves:
           </p>
           {providers.map((provider) => (
             <button
@@ -114,7 +113,7 @@ export default function CloudProviderModal({
               ) : (
                 <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-900/80 border border-slate-800 px-2 py-0.5 rounded-md">
                   <Clock className="w-3 h-3 text-slate-500" />
-                  {provider.badge || "Bientôt"}
+                  {provider.badge || "Soon"}
                 </span>
               )}
             </button>
@@ -127,7 +126,7 @@ export default function CloudProviderModal({
             onClick={closeWithAnimation}
             className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
           >
-            Annuler
+            Cancel
           </button>
         </div>
       </div>

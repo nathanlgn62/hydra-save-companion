@@ -17,10 +17,10 @@ const REPORT_API_URL =
 const APP_VERSION = "0.1.0";
 
 const ISSUE_CATEGORIES = [
-  { id: "path_not_found", label: "Chemin introuvable" },
-  { id: "sync_failure", label: "Échec de synchro" },
-  { id: "save_corrupted", label: "Sauvegarde corrompue" },
-  { id: "other", label: "Autre problème" },
+  { id: "path_not_found", label: "Path not found" },
+  { id: "sync_failure", label: "Sync failure" },
+  { id: "save_corrupted", label: "Corrupted save" },
+  { id: "other", label: "Other issue" },
 ] as const;
 
 type IssueCategoryId = (typeof ISSUE_CATEGORIES)[number]["id"];
@@ -107,9 +107,9 @@ export default function GameReportModal({
         closeWithAnimation();
       }, 2000);
     } catch (err) {
-      console.error("Erreur lors de l'envoi du report :", err);
+      console.error("Error submitting report:", err);
       setErrorMessage(
-        "Impossible d'envoyer le rapport. Veuillez vérifier votre connexion ou réessayer plus tard.",
+        "Unable to send report. Please check your internet connection or try again later.",
       );
     } finally {
       setIsSending(false);
@@ -143,7 +143,7 @@ export default function GameReportModal({
             </div>
             <div>
               <h3 className="font-semibold text-sm text-slate-100">
-                Signaler un problème
+                Report an Issue
               </h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-slate-400 truncate max-w-[200px]">
@@ -172,10 +172,10 @@ export default function GameReportModal({
               <Check className="w-6 h-6" />
             </div>
             <p className="text-base font-medium text-slate-100">
-              Rapport envoyé avec succès !
+              Report sent successfully!
             </p>
             <p className="text-xs text-slate-400 max-w-xs">
-              Merci pour votre retour. Le problème et les métadonnées techniques ont bien été transmis à l'équipe.
+              Thank you for your feedback. Technical details have been transmitted to the maintainers.
             </p>
           </div>
         ) : (
@@ -189,10 +189,10 @@ export default function GameReportModal({
               </div>
             )}
 
-            {/* Catégorie du problème */}
+            {/* Issue Category */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-slate-300">
-                Type de problème :
+                Issue Type:
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {ISSUE_CATEGORIES.map((item) => {
@@ -215,63 +215,63 @@ export default function GameReportModal({
               </div>
             </div>
 
-            {/* Chemin de sauvegarde (pré-rempli et ajustable) */}
+            {/* Save Directory */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
                   <Folder className="w-3.5 h-3.5 text-slate-400" />
-                  Chemin de sauvegarde :
+                  Save Directory:
                 </label>
                 <span className="text-[10px] text-slate-500">
-                  Modifiable si erroné
+                  Editable if incorrect
                 </span>
               </div>
               <input
                 type="text"
                 value={customSavePath}
                 onChange={(e) => setCustomSavePath(e.target.value)}
-                placeholder="Chemin introuvable (vous pouvez renseigner le vrai chemin ici)"
+                placeholder="Path not found (you can provide the actual save path here)"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
               />
             </div>
 
-            {/* Description détaillée */}
+            {/* Detailed Description */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-slate-300">
-                Description du problème : <span className="text-red-400">*</span>
+                Issue Description: <span className="text-red-400">*</span>
               </label>
               <textarea
                 rows={3}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Précisez ce qui ne fonctionne pas (ex: le dossier est vide, la sauvegarde ne se téléverse pas sur Google Drive...)"
+                placeholder="Describe what is wrong (e.g., folder is empty, save doesn't upload to Google Drive...)"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
                 required
               />
             </div>
 
-            {/* Contact email optionnel */}
+            {/* Optional contact email */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-slate-400" />
-                Votre email de contact <span className="text-slate-500 font-normal">(optionnel) :</span>
+                Contact Email <span className="text-slate-500 font-normal">(optional):</span>
               </label>
               <input
                 type="email"
                 value={userContact}
                 onChange={(e) => setUserContact(e.target.value)}
-                placeholder="Pour être prévenu lorsque le problème est corrigé"
+                placeholder="To receive updates when the issue is resolved"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
               />
             </div>
 
-            {/* Footer info et boutons */}
+            {/* Footer buttons */}
             <div className="pt-3 border-t border-slate-800 flex flex-col gap-3">
               <div className="flex items-center justify-between text-[11px] text-slate-500">
                 <span>
                   Hydra Save Companion <span className="font-mono">v{APP_VERSION}</span>
                 </span>
-                <span className="font-mono">OS : {currentPlatform}</span>
+                <span className="font-mono">OS: {currentPlatform}</span>
               </div>
 
               <div className="flex items-center justify-end gap-2.5">
@@ -280,7 +280,7 @@ export default function GameReportModal({
                   onClick={closeWithAnimation}
                   className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  Annuler
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -288,11 +288,11 @@ export default function GameReportModal({
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium flex items-center gap-2 shadow-sm shadow-indigo-900/30 transition-all cursor-pointer"
                 >
                   {isSending ? (
-                    <>Envoi en cours...</>
+                    <>Sending...</>
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />
-                      Envoyer le rapport
+                      Submit Report
                     </>
                   )}
                 </button>

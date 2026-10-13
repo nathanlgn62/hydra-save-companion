@@ -41,7 +41,7 @@ export default function SettingsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-base font-semibold text-slate-100">Paramètres</h2>
+          <h2 className="text-base font-semibold text-slate-100">Settings</h2>
           <button
             type="button"
             onClick={closeWithAnimation}
@@ -54,39 +54,13 @@ export default function SettingsModal({
         <div className="p-6 space-y-4 flex-1 overflow-y-auto">
           {loadingSettings ? (
             <div className="text-center py-4 text-xs text-slate-400">
-              Chargement des paramètres...
+              Loading settings...
             </div>
           ) : (
             <>
-              {/* [AUTOSYNC DOWNLOAD DÉSACTIVÉ]
-                  Décommenter cette section pour réactiver la configuration de l'auto-download dans les paramètres
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1.5">
-                  Fréquence de téléchargement des sauvegardes cloud
-                </label>
-                <select
-                  value={settings.downloadInterval ?? "manually"}
-                  onChange={(e) =>
-                    updateSettings({
-                      downloadInterval:
-                        e.target.value === "manually"
-                          ? "manually"
-                          : Number(e.target.value),
-                    })
-                  }
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer"
-                >
-                  <option value="5">Toutes les 5 minutes</option>
-                  <option value="15">Toutes les 15 minutes</option>
-                  <option value="30">Toutes les 30 minutes</option>
-                  <option value="manually">Manuel uniquement</option>
-                </select>
-              </div>
-              */}
-
-              <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1.5">
-                  Fréquence de téléversement des sauvegardes locales
+                  Local save upload frequency
                 </label>
                 <select
                   value={settings.uploadInterval}
@@ -100,15 +74,15 @@ export default function SettingsModal({
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer"
                 >
                   <option value="afterGameClose">
-                    À chaque fermeture d'un jeu
+                    After every game exit
                   </option>
-                  <option value="manually">Manuel uniquement</option>
+                  <option value="manually">Manual only</option>
                 </select>
               </div>
 
               <Toggle
-                label="Démarrage automatique"
-                description="Lancer l'application avec le système"
+                label="Launch at startup"
+                description="Start the application automatically with the system"
                 checked={settings.autoStartWithSystem}
                 onChange={(checked) =>
                   updateSettings({
@@ -118,8 +92,8 @@ export default function SettingsModal({
               />
 
               <Toggle
-                label="Notifications de bureau"
-                description="Afficher les notifications système Tauri"
+                label="Desktop notifications"
+                description="Display native desktop notifications"
                 checked={settings.desktopNotificationsEnabled ?? true}
                 onChange={(checked) =>
                   updateSettings({
@@ -130,8 +104,8 @@ export default function SettingsModal({
 
               <div className="pt-2 border-t border-slate-800/80">
                 <Toggle
-                  label="Mode Simulation / Démo"
-                  description="Simuler des jeux et des sauvegardes locales pour tester l'application"
+                  label="Demo / Simulation Mode"
+                  description="Simulate installed games and local saves to test the application"
                   checked={settings.demoMode ?? false}
                   onChange={(checked) =>
                     updateSettings({
@@ -150,7 +124,7 @@ export default function SettingsModal({
             onClick={closeWithAnimation}
             className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
           >
-            Fermer
+            Close
           </button>
         </div>
       </div>

@@ -84,7 +84,7 @@ export default function GameBackupsModal({
             </div>
             <div>
               <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
-                Sauvegardes Cloud
+                Cloud Backups
               </h2>
               <p className="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">
                 {gameTitle}
@@ -106,11 +106,10 @@ export default function GameBackupsModal({
             <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
               <Cloud className="w-10 h-10 text-slate-600 mb-1" />
               <p className="text-sm font-medium text-slate-300">
-                Aucune sauvegarde sur le cloud
+                No backups found in the cloud
               </p>
               <p className="text-xs text-slate-500 max-w-xs">
-                Synchronisez vos sauvegardes locales pour qu'elles apparaissent
-                ici.
+                Synchronize your local saves to make them appear here.
               </p>
             </div>
           ) : (
@@ -157,10 +156,10 @@ export default function GameBackupsModal({
                     }
                     title={
                       isCurrentLocal
-                        ? "Cette version correspond déjà à votre sauvegarde locale actuelle"
+                        ? "This version already matches your current local save"
                         : !savePath
-                          ? "Dossier local de sauvegarde introuvable"
-                          : "Restaurer cette version"
+                          ? "Local save folder not found"
+                          : "Restore this version"
                     }
                     className={`px-3 py-1.5 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-all shrink-0 ${
                       isCurrentLocal
@@ -171,17 +170,17 @@ export default function GameBackupsModal({
                     {isRestoring ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Restauration...</span>
+                        <span>Restoring...</span>
                       </>
                     ) : isCurrentLocal ? (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Déjà installée</span>
+                        <span>Installed</span>
                       </>
                     ) : (
                       <>
                         <Download className="w-3.5 h-3.5" />
-                        <span>Restaurer</span>
+                        <span>Restore</span>
                       </>
                     )}
                   </button>
@@ -194,15 +193,14 @@ export default function GameBackupsModal({
         {/* Footer */}
         <div className="p-3 bg-slate-950/40 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500">
           <span>
-            {backups.length} sauvegarde{backups.length > 1 ? "s" : ""} trouvée
-            {backups.length > 1 ? "s" : ""}
+            {backups.length} backup{backups.length > 1 ? "s" : ""} found
           </span>
           <button
             type="button"
             onClick={closeWithAnimation}
             className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs"
           >
-            Fermer
+            Close
           </button>
         </div>
       </div>

@@ -126,10 +126,10 @@ export default function App() {
                   <SearchX className="w-8 h-8 stroke-[1.5]" />
                 </div>
                 <h3 className="text-base font-semibold text-slate-200 mb-1">
-                  Aucun résultat
+                  No results found
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  Aucun jeu ne correspond à vos filtres actuels.
+                  No games match your current search and filters.
                 </p>
                 <button
                   type="button"
@@ -137,7 +137,7 @@ export default function App() {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer shadow-md shadow-indigo-600/20"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  Réinitialiser les filtres
+                  Reset filters
                 </button>
               </div>
             )}
@@ -164,19 +164,18 @@ export default function App() {
               </svg>
             </div>
             <h3 className="text-base font-semibold text-slate-200 mb-2">
-              Aucun jeu détecté
+              No games detected
             </h3>
             <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              Vérifiez que <span className="font-bold">Hydra Launcher</span> est
-              bien installé et que des jeux y sont configurés ou ajoutés à votre
-              bibliothèque.
+              Ensure that <span className="font-bold">Hydra Launcher</span> is
+              installed and games are configured or added to your library.
             </p>
             <button
               type="button"
               onClick={() => updateSettings({ demoMode: true })}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition cursor-pointer"
             >
-              🎮 Activer le Mode Démo / Simulation
+              🎮 Enable Demo / Simulation Mode
             </button>
           </div>
         )}

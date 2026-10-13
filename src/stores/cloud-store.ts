@@ -32,8 +32,8 @@ export const loginCloud = async (provider: string) => {
       queryClient.refetchQueries({ queryKey: ["cloud-storage"] });
     }
   } catch (err) {
-    console.error(`Erreur d'authentification pour ${provider} :`, err);
-    alert(`Échec de la connexion à ${provider} : ${err}`);
+    console.error(`Authentication error for ${provider}:`, err);
+    alert(`Failed to connect to ${provider}: ${err}`);
   }
 };
 

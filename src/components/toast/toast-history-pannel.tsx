@@ -49,11 +49,11 @@ export default function ToastHistoryPanel({
           isVisible ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* En-tête du panneau */}
+        {/* Panel header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-100 font-medium text-sm">
             <History className="w-4 h-4 text-indigo-400" />
-            <span>Historique des notifications</span>
+            <span>Notification History</span>
           </div>
           <button
             type="button"
@@ -64,12 +64,12 @@ export default function ToastHistoryPanel({
           </button>
         </div>
 
-        {/* Liste des notifications */}
+        {/* Notifications list */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5">
           {history.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs text-center gap-2">
               <History className="w-8 h-8 stroke-1" />
-              <p>Aucun historique pour le moment.</p>
+              <p>No history yet.</p>
             </div>
           ) : (
             history.map((toast) => (
@@ -89,7 +89,7 @@ export default function ToastHistoryPanel({
           )}
         </div>
 
-        {/* Pied de page (Option vider l'historique) */}
+        {/* Footer (Clear history option) */}
         {history.length > 0 && (
           <div className="p-3 border-t border-slate-800 flex justify-end">
             <button
@@ -98,7 +98,7 @@ export default function ToastHistoryPanel({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Vider l'historique</span>
+              <span>Clear History</span>
             </button>
           </div>
         )}

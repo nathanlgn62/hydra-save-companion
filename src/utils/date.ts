@@ -1,5 +1,12 @@
 export const parseSaveDate = (dateStr?: string | null): number | null => {
-  if (!dateStr || dateStr === "Jamais" || dateStr === "Aucune") return null;
+  if (
+    !dateStr ||
+    dateStr === "Never" ||
+    dateStr === "None" ||
+    dateStr === "Jamais" ||
+    dateStr === "Aucune"
+  )
+    return null;
 
   // Format Rust "DD/MM/YYYY HH:mm"
   const customFormatRegex = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/;
@@ -22,15 +29,16 @@ export const parseSaveDate = (dateStr?: string | null): number | null => {
 };
 
 export const formatDate = (dateStr?: string | null) => {
-  if (!dateStr) return "Jamais";
+  if (!dateStr || dateStr === "Jamais" || dateStr === "Never") return "Never";
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return dateStr;
-    return new Intl.DateTimeFormat("fr-FR", {
-      day: "2-digit",
+    return new Intl.DateTimeFormat("en-US", {
       month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     }).format(date);
   } catch {
     return dateStr;

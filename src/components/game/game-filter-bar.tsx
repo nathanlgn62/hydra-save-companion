@@ -17,13 +17,13 @@ export interface StatusFilterOption {
 }
 
 export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
-  { id: "all", label: "Tous les statuts", dotColor: "bg-slate-400" },
-  { id: "up-to-date", label: "À jour", dotColor: "bg-emerald-400" },
-  { id: "local-newer", label: "Local plus récent", dotColor: "bg-indigo-400" },
-  { id: "cloud-newer", label: "Cloud plus récent", dotColor: "bg-amber-400" },
-  { id: "to-download", label: "À télécharger", dotColor: "bg-sky-400" },
-  { id: "never-synced", label: "Jamais synchronisé", dotColor: "bg-amber-500" },
-  { id: "no-save", label: "Sans sauvegarde", dotColor: "bg-slate-500" },
+  { id: "all", label: "All statuses", dotColor: "bg-slate-400" },
+  { id: "up-to-date", label: "Up to Date", dotColor: "bg-emerald-400" },
+  { id: "local-newer", label: "Local Newer", dotColor: "bg-indigo-400" },
+  { id: "cloud-newer", label: "Cloud Newer", dotColor: "bg-amber-400" },
+  { id: "to-download", label: "To Download", dotColor: "bg-sky-400" },
+  { id: "never-synced", label: "Never Synced", dotColor: "bg-amber-500" },
+  { id: "no-save", label: "No Save", dotColor: "bg-slate-500" },
 ];
 
 interface GameFilterBarProps {
@@ -130,11 +130,11 @@ export default function GameFilterBar({
                 }
               }
             }}
-            placeholder="Rechercher..."
+            placeholder="Search..."
             className="w-40 sm:w-60 h-8 pl-8.5 pr-14 bg-slate-950/70 hover:bg-slate-950/90 focus:bg-slate-950 border border-slate-800 focus:border-indigo-500/80 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200"
           />
 
-          {/* Badge indicateur de raccourci clavier ou bouton effacer */}
+          {/* Keyboard shortcut indicator or clear button */}
           {searchQuery ? (
             <button
               type="button"
@@ -143,23 +143,23 @@ export default function GameFilterBar({
                 inputRef.current?.focus();
               }}
               className="absolute right-2 p-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition cursor-pointer"
-              title="Effacer la recherche (Échap)"
+              title="Clear search (Esc)"
             >
               <X className="w-3 h-3" />
             </button>
           ) : (
             <div className="absolute right-2 flex items-center gap-0.5 pointer-events-none select-none">
-              <kbd className="px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 rounded shadow-xs">
+              <kbd className="px-1.5 py-0.2 text-[9px] font-mono font-medium text-slate-400 bg-slate-800/80 border border-slate-700/60 rounded shadow-xs">
                 ⌘K
               </kbd>
             </div>
           )}
         </div>
 
-        {/* Séparateur vertical subtil */}
+        {/* Subtle vertical separator */}
         <div className="w-[1px] h-5 bg-slate-800/90 mx-0.5" />
 
-        {/* Menu déroulant de filtre par statut */}
+        {/* Status filter dropdown menu */}
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
@@ -189,13 +189,13 @@ export default function GameFilterBar({
             />
           </button>
 
-          {/* Popover vers le HAUT (bottom-full) car nous sommes ancrés en bas */}
+          {/* Popover UPWARDS (bottom-full) */}
           {isDropdownOpen && (
             <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 bottom-full mb-2.5 w-64 bg-slate-900/95 backdrop-blur-xl border border-slate-700/70 rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/50">
               <div className="px-2.5 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800/80 mb-1 flex items-center justify-between">
-                <span>Statut de sauvegarde</span>
+                <span>Save status</span>
                 <span className="text-slate-500 font-mono text-[9px] lowercase font-normal">
-                  {totalGames} jeux
+                  {totalGames} games
                 </span>
               </div>
               <div className="flex flex-col gap-0.5">
@@ -245,27 +245,27 @@ export default function GameFilterBar({
           )}
         </div>
 
-        {/* Bouton de réinitialisation si actif */}
+        {/* Reset button when active */}
         {hasActiveFilters && (
           <button
             type="button"
             onClick={onReset}
             className="h-8 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-            title="Réinitialiser tous les filtres"
+            title="Reset all filters"
           >
             <RotateCcw className="w-3 h-3" />
             <span className="hidden sm:inline">Reset</span>
           </button>
         )}
 
-        {/* Bouton de rafraîchissement de la liste des jeux */}
+        {/* Refresh button */}
         {onRefresh && (
           <button
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
             className="h-8 px-2 rounded-xl bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800 hover:border-slate-700/80 text-slate-300 hover:text-white text-xs flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            title="Actualiser la liste des jeux et sauvegardes"
+            title="Refresh game list and saves"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-indigo-400" : ""}`}

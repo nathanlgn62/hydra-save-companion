@@ -181,8 +181,8 @@ export default function GameCard({ game }: GameCardProps) {
                 disabled={!game.localPathExists}
                 title={
                   game.savePath
-                    ? `Ouvrir ${game.savePath}`
-                    : "Aucun dossier trouvé"
+                    ? `Open ${game.savePath}`
+                    : "No folder found"
                 }
                 className="h-8 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center shrink-0"
               >
@@ -195,10 +195,10 @@ export default function GameCard({ game }: GameCardProps) {
                 disabled={!hasBackups}
                 title={
                   !isDriveConnected
-                    ? "Connectez un service cloud pour voir l'historique"
+                    ? "Connect a cloud service to view history"
                     : hasBackups
-                    ? `Voir les sauvegardes cloud (${game.backups!.length})`
-                    : "Aucune sauvegarde cloud disponible"
+                    ? `View cloud backups (${game.backups!.length})`
+                    : "No cloud backups available"
                 }
                 className="h-8 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center shrink-0"
               >
@@ -208,7 +208,7 @@ export default function GameCard({ game }: GameCardProps) {
               <button
                 type="button"
                 onClick={() => setIsReportOpen(true)}
-                title="Signaler un problème"
+                title="Report an issue"
                 className="h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-sm shadow-red-950/20"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -221,7 +221,7 @@ export default function GameCard({ game }: GameCardProps) {
               disabled={isSyncDisabled}
               title={
                 !isDriveConnected
-                  ? "Connectez un service cloud pour synchroniser"
+                  ? "Connect a cloud service to synchronize"
                   : undefined
               }
               className="w-full h-8 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-medium text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-900/30 transition-all cursor-pointer"
@@ -229,17 +229,17 @@ export default function GameCard({ game }: GameCardProps) {
               {!isDriveConnected ? (
                 <>
                   <CloudOff className="w-3.5 h-3.5 shrink-0 text-slate-300" />
-                  <span className="truncate">Cloud non connecté</span>
+                  <span className="truncate">Cloud disconnected</span>
                 </>
               ) : isPending ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                   <span className="truncate">
                     {downloadMutation.isPending
-                      ? "Téléchargement..."
+                      ? "Downloading..."
                       : syncMutation.isPending
-                      ? "Envoi vers le cloud..."
-                      : "Synchronisation..."}
+                      ? "Uploading to cloud..."
+                      : "Synchronizing..."}
                   </span>
                 </>
               ) : countdown !== null ? (
@@ -250,17 +250,17 @@ export default function GameCard({ game }: GameCardProps) {
               ) : syncDirection === "down" ? (
                 <>
                   <CloudDownload className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Synchroniser vers local</span>
+                  <span className="truncate">Sync to local</span>
                 </>
               ) : syncDirection === "up" ? (
                 <>
                   <CloudUpload className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Synchroniser vers cloud</span>
+                  <span className="truncate">Sync to cloud</span>
                 </>
               ) : (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Synchroniser</span>
+                  <span className="truncate">Synchronize</span>
                 </>
               )}
             </button>

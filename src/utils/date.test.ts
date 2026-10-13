@@ -30,10 +30,10 @@ describe("date utils", () => {
   });
 
   describe("formatDate", () => {
-    it("should return 'Jamais' for empty or null dates", () => {
-      expect(formatDate(null)).toBe("Jamais");
-      expect(formatDate(undefined)).toBe("Jamais");
-      expect(formatDate("")).toBe("Jamais");
+    it("should return 'Never' for empty or null dates", () => {
+      expect(formatDate(null)).toBe("Never");
+      expect(formatDate(undefined)).toBe("Never");
+      expect(formatDate("")).toBe("Never");
     });
 
     it("should format ISO date strings properly", () => {

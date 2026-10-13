@@ -19,7 +19,7 @@ describe("provider-display-name utils", () => {
   });
 
   it("should return fallback for unknown or null", () => {
-    expect(getProviderDisplayName(null)).toBe("Cloud connecté");
-    expect(getProviderDisplayName("unknown-provider")).toBe("Cloud connecté");
+    expect(getProviderDisplayName(null)).toBe("Cloud Connected");
+    expect(getProviderDisplayName("unknown-provider")).toBe("Cloud Connected");
   });
 });

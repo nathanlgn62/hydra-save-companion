@@ -664,7 +664,7 @@ pub async fn upload_to_google_drive(
     }
 
     Ok(format!(
-        "Archive '{}' uploadée avec succès sur Google Drive !",
+        "Archive '{}' successfully uploaded to Google Drive!",
         file_name
     ))
 }
@@ -712,12 +712,12 @@ pub async fn upload_to_dropbox(
 
     if upload_res.status().is_success() {
         Ok(format!(
-            "Archive '{}' uploadée avec succès sur Dropbox !",
+            "Archive '{}' successfully uploaded to Dropbox!",
             file_name
         ))
     } else {
         let err_text = upload_res.text().await.unwrap_or_default();
-        Err(format!("Erreur lors de l'upload Dropbox : {}", err_text))
+        Err(format!("Error during Dropbox upload: {}", err_text))
     }
 }
 

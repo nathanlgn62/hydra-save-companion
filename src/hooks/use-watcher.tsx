@@ -73,8 +73,8 @@ export function useWatcher() {
 
         setRunningGame(gameTitle);
         clearCountdown();
-        showToast(`Le jeu "${gameTitle}" a démarré.`, "info");
-        desktopNotification(`${gameTitle}`, `Le jeu a démarré.`);
+        showToast(`Game "${gameTitle}" started.`, "info");
+        desktopNotification(`${gameTitle}`, `Game started.`);
       });
 
       unlistenClosed = await listen<GameClosedPayload>(
@@ -93,26 +93,26 @@ export function useWatcher() {
 
           setRunningGame(null);
 
-          // 1. On affiche immédiatement le toast et la notif de fermeture
+          // Show exit toast and trigger countdown if configured
           if (
             settings.uploadInterval === "afterGameClose" &&
             event.payload.savePath
           ) {
             startCountdown(gameTitle, event.payload.savePath, 45);
             showToast(
-              `Le jeu "${gameTitle}" a été fermé. La sauvegarde sera synchronisée dans 45 secondes.`,
+              `Game "${gameTitle}" closed. Save will sync in 45 seconds.`,
               "info",
             );
             desktopNotification(
               `${gameTitle}`,
-              `La sauvegarde sera synchronisée dans 45 secondes.`,
+              `Save will sync in 45 seconds.`,
             );
           } else {
-            showToast(`Le jeu "${gameTitle}" a été fermé.`, "info");
-            desktopNotification(`${gameTitle}`, `Le jeu a été fermé.`);
+            showToast(`Game "${gameTitle}" closed.`, "info");
+            desktopNotification(`${gameTitle}`, `Game closed.`);
           }
 
-          // 2. On rafraîchit les requêtes en arrière-plan sans bloquer l'UI
+          // Invalidate queries in background
           queryClient.invalidateQueries({ queryKey: ["games"] });
         },
       );

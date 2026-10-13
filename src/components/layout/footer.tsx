@@ -21,14 +21,14 @@ export default function Footer() {
           <>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-slate-300 font-medium">
-              Jeu en cours :{" "}
+              Current Game:{" "}
               <span className="text-emerald-400">{runningGame}</span>
             </span>
           </>
         ) : (
           <>
             <span className="w-2 h-2 rounded-full bg-slate-600" />
-            <span>Aucun jeu en cours</span>
+            <span>No game running</span>
           </>
         )}
       </div>
@@ -37,26 +37,26 @@ export default function Footer() {
         {!isDriveConnected ? (
           <div className="flex items-center gap-1.5 text-slate-500">
             <CloudOff className="w-3.5 h-3.5 text-slate-600" />
-            <span>Cloud non connecté</span>
+            <span>Cloud disconnected</span>
           </div>
         ) : isLoading ? (
           <div className="flex items-center gap-1.5 text-slate-400">
             <Loader2 className="w-3 h-3 animate-spin text-slate-500" />
-            <span>{getProviderDisplayName(cloudProvider)} : Chargement...</span>
+            <span>{getProviderDisplayName(cloudProvider)}: Loading...</span>
           </div>
         ) : storageInfo ? (
           <div
             className="flex items-center gap-2.5 text-slate-400"
-            title={storageInfo.freeFormatted ? `${storageInfo.freeFormatted} d'espace disponible` : undefined}
+            title={storageInfo.freeFormatted ? `${storageInfo.freeFormatted} available storage` : undefined}
           >
             <div className="flex items-center gap-1.5">
               <Cloud className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-medium text-slate-300">
-                {storageInfo.providerName} :
+                {storageInfo.providerName}:
               </span>
               <span>
                 {storageInfo.usedFormatted}
-                {storageInfo.totalFormatted ? ` / ${storageInfo.totalFormatted}` : " utilisés"}
+                {storageInfo.totalFormatted ? ` / ${storageInfo.totalFormatted}` : " used"}
               </span>
             </div>
 
@@ -76,7 +76,7 @@ export default function Footer() {
                 </div>
                 {storageInfo.freeFormatted && (
                   <span className="text-slate-500 text-[10px]">
-                    ({storageInfo.freeFormatted} libres)
+                    ({storageInfo.freeFormatted} free)
                   </span>
                 )}
               </div>
@@ -85,7 +85,7 @@ export default function Footer() {
         ) : (
           <div className="flex items-center gap-1.5 text-slate-400">
             <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{getProviderDisplayName(cloudProvider)} : Connecté</span>
+            <span>{getProviderDisplayName(cloudProvider)}: Connected</span>
           </div>
         )}
       </div>

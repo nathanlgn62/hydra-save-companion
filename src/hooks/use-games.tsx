@@ -55,7 +55,7 @@ export function useGames() {
             }).catch(() => ""),
           ]);
 
-          let remoteDate = "Jamais";
+      let remoteDate = "Never";
           let backups: RemoteBackupInfo[] = [];
           if (isDriveConnected && storedToken && saveInfo?.resolvedPath) {
             try {
@@ -81,13 +81,13 @@ export function useGames() {
               )
                 remoteDate = syncStatus.cloudTime;
             } catch {
-              remoteDate = "Jamais";
+              remoteDate = "Never";
             }
           }
 
           return {
             ...game,
-            lastLocalSave: saveInfo?.lastModified ?? "Jamais",
+            lastLocalSave: saveInfo?.lastModified ?? "Never",
             lastRemoteSave: remoteDate,
             savePath: saveInfo?.resolvedPath ?? null,
             localPathExists: saveInfo?.localPathExists,
@@ -98,7 +98,7 @@ export function useGames() {
         }),
       );
 
-      // Notification au backend Tauri
+      // Notification to Tauri backend
       const monitoredPayload: GameProcessInfo[] = gamesWithSaves.map((game) => ({
         title: game.title,
         executable_name:
@@ -113,7 +113,7 @@ export function useGames() {
   });
 }
 
-// Mutation pour la synchronisation d'UN jeu
+// Mutation to upload ONE game save
 export function useUploadSave() {
   const queryClient = useQueryClient();
 
@@ -134,21 +134,21 @@ export function useUploadSave() {
       const provider = localStorage.getItem("cloud_provider") || "google-drive";
 
       if (!storedToken) {
-        showToast("Non connecté à un service Cloud", "error");
+        showToast("Not connected to a Cloud service", "error");
         desktopNotification(
-          "Synchronisation automatique",
-          "Non connecté à un service Cloud",
+          "Automatic Synchronization",
+          "Not connected to a Cloud service",
         );
         return;
       }
 
       showToast(
-        `Upload automatique de la sauvegarde de "${gameTitle}" en cours...`,
+        `Uploading save for "${gameTitle}" in background...`,
         "info",
       );
       desktopNotification(
         `${gameTitle}`,
-        `Upload automatique de la sauvegarde en cours...`,
+        `Uploading save to cloud...`,
       );
 
       return await invoke<string>("upload_game_save_to_drive", {
@@ -160,19 +160,19 @@ export function useUploadSave() {
     },
     onSuccess: () => {
       desktopNotification(
-        "Synchronisation automatique",
-        "Upload de la sauvegarde terminé.",
+        "Automatic Synchronization",
+        "Save upload completed.",
       );
-      showToast("Upload de la sauvegarde terminé.", "success");
+      showToast("Save upload completed.", "success");
       queryClient.refetchQueries({ queryKey: ["games"] });
       queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
     },
     onError: () => {
       desktopNotification(
-        "Synchronisation automatique",
-        `Erreur lors de l'upload de la sauvegarde`,
+        "Automatic Synchronization",
+        "Error uploading save",
       );
-      showToast("Erreur lors de l'upload de la sauvegarde", "error");
+      showToast("Error uploading save", "error");
     },
   });
 }
@@ -190,10 +190,10 @@ export function useDownloadSave() {
       const provider = localStorage.getItem("cloud_provider") || "google-drive";
 
       if (!storedToken) {
-        showToast("Non connecté à un service Cloud", "error");
+        showToast("Not connected to a Cloud service", "error");
         await desktopNotification(
-          "Synchronisation automatique",
-          "Non connecté à un service Cloud",
+          "Automatic Synchronization",
+          "Not connected to a Cloud service",
         );
         return;
       }

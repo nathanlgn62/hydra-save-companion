@@ -20,7 +20,7 @@ export default function Header() {
 
   const handleCloudAction = () => {
     if (isDriveConnected) {
-      if (confirm("Veux-tu te déconnecter du Cloud ?")) {
+      if (confirm("Do you want to disconnect from Cloud storage?")) {
         disconnectGoogle();
       }
     } else {
@@ -48,9 +48,9 @@ export default function Header() {
             <span
               onClick={() => updateSettings({ demoMode: false })}
               className="cursor-pointer text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition"
-              title="Mode Simulation actif (cliquer pour désactiver)"
+              title="Demo Mode active (click to disable)"
             >
-              Mode Démo
+              Demo Mode
             </span>
           )}
         </div>
@@ -68,8 +68,8 @@ export default function Header() {
             }`}
             title={
               isDriveConnected
-                ? `Connecté à ${getProviderDisplayName(cloudProvider)} (Cliquer pour déconnecter)`
-                : "Choisir un service Cloud"
+                ? `Connected to ${getProviderDisplayName(cloudProvider)} (Click to disconnect)`
+                : "Choose a Cloud service"
             }
           >
             {isDriveConnected ? (
@@ -79,10 +79,10 @@ export default function Header() {
             )}
             <span>
               {loading
-                ? "Connexion..."
+                ? "Connecting..."
                 : isDriveConnected
                   ? getProviderDisplayName(cloudProvider)
-                  : "Cloud déconnecté"}
+                  : "Cloud Disconnected"}
             </span>
           </button>
 
@@ -90,7 +90,7 @@ export default function Header() {
             type="button"
             onClick={() => setIsHistoryOpen(true)}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-            title="Historique des notifications"
+            title="Notification History"
           >
             <History className="w-4 h-4" />
           </button>
@@ -99,7 +99,7 @@ export default function Header() {
             type="button"
             onClick={() => setIsSettingsOpen(true)}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-            title="Paramètres"
+            title="Settings"
           >
             <Settings className="w-4 h-4" />
           </button>

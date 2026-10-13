@@ -9,6 +9,6 @@ export const getProviderDisplayName = (provider: string | null) => {
     case "proton-drive":
       return "Proton Drive";
     default:
-      return "Cloud connecté";
+      return "Cloud Connected";
   }
 };

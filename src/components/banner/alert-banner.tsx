@@ -16,11 +16,11 @@ export default function AlertBanner() {
       </svg>
       <div>
         <span className="font-semibold block mb-0.5 text-red-300">
-          Jeux non pris en charge
+          Unsupported games
         </span>
-        Seuls les jeux présents dans Hydra Launcher et installés sont affichés.
-        Les jeux importés des boutiques officielles disposent déjà de leur
-        propre sauvegarde cloud.
+        Only installed games detected via Hydra Launcher are displayed. Games
+        imported from official store platforms already have their own cloud save
+        system.
       </div>
     </div>
   );

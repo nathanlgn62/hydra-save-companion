@@ -19,76 +19,76 @@ export function getSyncBadgeConfig(
 ): SyncBadgeConfig {
   if (!ludasaviPathExists) {
     return {
-      label: "Introuvable",
+      label: "Not Found",
       variant: "neutral",
       Icon: AlertCircle,
       description:
-        "Aucun dossier de sauvegarde n'a été trouvé via le manifeste Ludasavi.",
+        "No save directory was found via the Ludasavi manifest.",
     };
   }
 
   const localDate = parseSaveDate(lastLocalSave);
 
-  // Si aucun service Cloud n'est connecté
+  // If no cloud service is connected
   if (!isCloudConnected) {
     if (!localDate) {
       return {
-        label: "Aucune sauvegarde",
+        label: "No Save",
         variant: "neutral",
         Icon: Cloud,
-        description: "Aucun fichier local n'a été détecté.",
+        description: "No local save files detected.",
       };
     }
 
     return {
-      label: "Non synchronisé",
+      label: "Not Synced",
       variant: "neutral",
       Icon: CloudOff,
       description:
-        "Sauvegarde locale présente. Connectez un service Cloud pour synchroniser.",
+        "Local save found. Connect a cloud service to synchronize.",
     };
   }
 
   const remoteDate = parseSaveDate(lastRemoteSave);
 
-  // Si ni le local ni le cloud n'ont de sauvegarde
+  // If neither local nor cloud has a save
   if (!localDate && !remoteDate) {
     return {
-      label: "Aucune sauvegarde",
+      label: "No Save",
       variant: "neutral",
       Icon: Cloud,
       description:
-        "Aucune sauvegarde n'a été détectée ni en local ni sur le cloud.",
+        "No save files detected locally or in the cloud.",
     };
   }
 
-  // Si on a une save sur le cloud mais pas de save locale
+  // If we have a cloud save but no local save
   if (!localDate && remoteDate) {
     return {
-      label: "À télécharger",
+      label: "To Download",
       variant: "info",
       Icon: CloudDownload,
       description:
-        "Une sauvegarde est disponible sur le cloud mais aucun fichier local n'a été détecté.",
+        "A backup is available in the cloud, but no local files exist.",
     };
   }
 
   if (!localDate) {
     return {
-      label: "Aucune sauvegarde",
+      label: "No Save",
       variant: "neutral",
       Icon: Cloud,
-      description: "Aucun fichier local n'a été détecté.",
+      description: "No local save files detected.",
     };
   }
 
   if (!remoteDate) {
     return {
-      label: "Jamais sync",
+      label: "Never Synced",
       variant: "warning",
       Icon: Cloud,
       description:
-        "La sauvegarde locale existe mais n'a jamais été envoyée sur le cloud.",
+        "Local save exists but has never been uploaded to the cloud.",
     };
   }
 
@@ -96,29 +96,29 @@ export function getSyncBadgeConfig(
 
   if (Math.abs(timeDiff) < 60000) {
     return {
-      label: "À jour",
+      label: "Up to Date",
       variant: "success",
       Icon: CheckCircle2,
-      description: "Vos sauvegardes locales et cloud sont synchronisées.",
+      description: "Your local and cloud saves are in sync.",
     };
   }
 
   if (localDate > remoteDate) {
     return {
-      label: "Local plus récent",
+      label: "Local Newer",
       variant: "info",
       Icon: CloudUpload,
       description:
-        "Votre sauvegarde locale est plus récente que celle présente sur le cloud.",
+        "Your local save is newer than the cloud version.",
     };
   }
 
   return {
-    label: "Cloud plus récent",
+    label: "Cloud Newer",
     variant: "warning",
     Icon: CloudDownload,
     description:
-      "La version sur le cloud est plus récente que votre sauvegarde locale.",
+      "The cloud version is newer than your local save.",
   };
 }
 
@@ -136,18 +136,26 @@ export function getGameStatusCategory(
   );
 
   switch (badge.label) {
+    case "Up to Date":
     case "À jour":
       return "up-to-date";
+    case "Local Newer":
     case "Local plus récent":
       return "local-newer";
+    case "Cloud Newer":
     case "Cloud plus récent":
       return "cloud-newer";
+    case "To Download":
     case "À télécharger":
       return "to-download";
+    case "Not Synced":
     case "Non synchronisé":
+    case "Never Synced":
     case "Jamais sync":
       return "never-synced";
+    case "No Save":
     case "Aucune sauvegarde":
+    case "Not Found":
     case "Introuvable":
     default:
       return "no-save";

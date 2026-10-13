@@ -57,13 +57,13 @@ export default function SplashScreen({
 
   if (!isVisible) return null;
 
-  // Libellé d'état dynamique selon la progression
+  // Dynamic status label based on progress
   const getStatusLabel = () => {
-    if (progress >= 100) return "Compagnon prêt !";
-    if (progress >= 85) return "Finalisation de la vérification...";
-    if (progress >= 60) return "Vérification des sauvegardes et du Cloud...";
-    if (progress >= 30) return "Détection des jeux installés...";
-    return "Initialisation du compagnon...";
+    if (progress >= 100) return "Companion ready!";
+    if (progress >= 85) return "Finalizing checks...";
+    if (progress >= 60) return "Checking cloud and saves...";
+    if (progress >= 30) return "Detecting installed games...";
+    return "Initializing companion...";
   };
 
   const clampedProgress = Math.min(Math.max(Math.round(progress), 0), 100);
