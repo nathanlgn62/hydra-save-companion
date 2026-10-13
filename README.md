@@ -2,9 +2,9 @@
 
 # 🎮 Hydra Save Companion (HSC)
 
-**Le compagnon de synchronisation Cloud automatique pour [Hydra Launcher](https://github.com/hydralauncher/hydra).**
+**The automatic cloud save synchronization companion for [Hydra Launcher](https://github.com/hydralauncher/hydra).**
 
-Sauvegardez, synchronisez et restaurez automatiquement les sauvegardes de vos jeux PC sur le Cloud sans configuration fastidieuse.
+Automatically back up, sync, and restore your PC game saves across the cloud without tedious manual configuration.
 
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8D8?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
 [![Rust](https://img.shields.io/badge/Rust-2021-DEA584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
@@ -13,62 +13,62 @@ Sauvegardez, synchronisez et restaurez automatiquement les sauvegardes de vos je
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.style=for-the-badge)](LICENSE)
 
-[Fonctionnalités](#-fonctionnalités-clés) • [Architecture](#-architecture--fonctionnement) • [Installation](#-installation--démarrage) • [Configuration](#-variables-denvironnement) • [Roadmap](#-roadmap)
+[Features](#-key-features) • [Architecture](#-architecture--how-it-works) • [Installation](#-installation--getting-started) • [Configuration](#-environment-variables) • [Roadmap](#-roadmap)
 
 ---
 
 </div>
 
-## 💡 Pourquoi Hydra Save Companion ?
+## 💡 Why Hydra Save Companion?
 
-**[Hydra Launcher](https://github.com/hydralauncher/hydra)** est un lanceur de jeux vidéo open-source puissant. Cependant, les jeux installés indépendamment des plateformes officielles (Steam, Epic, GOG) ne bénéficient pas de la synchronisation des sauvegardes dans le Cloud (**Steam Cloud**). En cas de changement de machine, de réinstallation de Windows ou pour alterner entre un PC fixe et un PC portable / ROG Ally / Steam Deck, vos sauvegardes sont souvent perdues ou difficiles à transférer.
+**[Hydra Launcher](https://github.com/hydralauncher/hydra)** is a powerful open-source game launcher. However, games installed independently from official digital distribution platforms (Steam, Epic, GOG) lack automated cloud save synchronization (**Steam Cloud**). When switching machines, reinstalling your OS, or hopping between a desktop PC and a handheld device (ROG Ally, Steam Deck), saves can easily be lost or prove cumbersome to transfer manually.
 
-**Hydra Save Companion (HSC)** comble ce manque :
-- Il lit en direct la bibliothèque de vos jeux installés dans **Hydra Launcher**.
-- Il identifie automatiquement l'emplacement exact de chaque sauvegarde grâce à l'immense base communautaire **Ludasavi**.
-- Il surveille l'exécution de vos jeux en arrière-plan et **téléverse vos sauvegardes sur le Cloud dès que vous quittez une partie**.
-- Il **détecte les sauvegardes plus récentes sur le Cloud** et vous permet de les restaurer ou télécharger en un clic.
-
----
-
-## ✨ Fonctionnalités Clés
-
-### 🔄 Synchronisation Cloud Transparente & Historique
-- **Upload automatique à la fermeture** : Détecte l'arrêt du processus de jeu et attend un court délai de sécurité (cooldown de 45 secondes) pour s'assurer que les fichiers ont fini d'être écrits sur le disque avant de créer l'archive `.zip` et de l'envoyer.
-- **Historique & Rétention (5 versions)** : Conservation automatique des 5 sauvegardes les plus récentes par jeu avec politique de rotation automatique. Une fenêtre d'historique dédiée permet de restaurer en un clic n'importe quel point de sauvegarde antérieur.
-- **Téléchargement & Restauration manuelle sécurisée** : Les téléchargements depuis le Cloud ne sont jamais appliqués automatiquement afin d'éviter tout écrasement involontaire en cours de partie. Vous décidez quand restaurer une sauvegarde en un clic (depuis la carte du jeu ou la modale d'historique).
-- **Conservation des horodatages précis** : Les dates de modification des sauvegardes locales et distantes sont normalisées en UTC et synchronisées à la seconde près.
-- **Télémétrie du Cloud en direct** : Affichage temps réel dans le footer de l'espace de stockage occupé et disponible sur votre Cloud connecté (Google Drive, etc.) avec micro-jauge ergonomique.
-
-### 🧠 Détection Intelligente des Sauvegardes
-- **Intégration du manifeste Ludasavi** : Téléchargement et mise en cache du manifeste officiel [Ludasavi](https://github.com/mtkennerly/ludasavi-manifest) répertoriant les chemins de sauvegarde de plus de 10 000 jeux PC.
-- **Résolution des chemins dynamiques** : Prise en charge des variables d'environnement (`%APPDATA%`, `%LOCALAPPDATA%`, `Saved Games`, `Documents`, répertoires sous Linux `$HOME`, etc.) et des identifiants Steam (`SteamID` via registre Windows).
-- **Support des émulateurs de DRM** : Heuristiques spécifiques pour localiser les sauvegardes créées par les émulateurs courants (RUNE, CODEX, TENOKE, EMPRESS, Goldberg SteamEmu, FLT, Razor1911...).
-
-### 🎮 Intégration Native Hydra Launcher
-- **Accès direct LevelDB** : Lecture sécurisée de la base de données LevelDB locale d'Hydra Launcher (`hydra-db`) via une copie temporaire pour éviter tout verrouillage d'écriture.
-- **Filtrage intelligent** : Seuls les jeux actuellement installés, actifs et dotés d'un exécutable valide sont affichés (exclusion des imports Steam officiels qui possèdent déjà leur propre Cloud).
-
-### 🖼️ Interface Soignée & Visuels Riches
-- **Écran de lancement (Splash Screen)** : Animation fluide au démarrage avec logo officiel et jauge de progression pendant la détection et la vérification des jeux.
-- **Jaquettes officielles Steam** : Récupération dynamique des bannières et jaquettes de jeux via l'API Steam Store et le CDN Cloudflare Steam.
-- **Badges de statut en direct** : Visualisation instantanée de l'état de chaque jeu :
-  - 🟢 **À jour** : Fichiers locaux et distants parfaitement synchronisés.
-  - 🔵 **Local plus récent** : Sauvegarde prête à être envoyée vers le Cloud.
-  - 🟡 **Cloud plus récent** : Nouvelle sauvegarde disponible sur le Cloud.
-  - 📥 **À télécharger** : Sauvegarde disponible dans le Cloud pour une nouvelle installation.
-  - ⚠️ **Jamais synchronisé** ou **Sauvegarde introuvable**.
-- **Accès rapide en un clic** : Ouverture directe du dossier local de sauvegarde dans l'explorateur de fichiers.
-- **Système de signalement intégré** : Possibilité de signaler directement un problème d'emplacement de sauvegarde pour un jeu.
-
-### ⚡ Léger, Discret et Performant
-- **Gestion optimisée de la mémoire** : Utilisation de l'allocateur haute performance [`mimalloc`](https://crates.io/crates/mimalloc) et préchargement asynchrone du manifeste sur disque pour garantir une consommation RAM maîtrisée.
-- **System Tray (Zone de notification)** : Icône native intégrée dans la barre des tâches / tray system (Linux & Windows) avec menu contextuel (« Ouvrir », « Quitter ») et tooltip de statut.
-- **Notifications système natives** lors du démarrage, de la fermeture d'un jeu et de la fin de synchronisation.
+**Hydra Save Companion (HSC)** solves this:
+- Reads your installed game library directly from **Hydra Launcher**.
+- Automatically locates the exact save path for each game using the vast community-driven **Ludasavi** database.
+- Monitors game processes in the background and **uploads your saves to the cloud as soon as you exit a game**.
+- **Detects newer saves in the cloud** and lets you download or restore them with a single click.
 
 ---
 
-## 📐 Architecture & Fonctionnement
+## ✨ Key Features
+
+### 🔄 Seamless Cloud Sync & Backup History
+- **Automatic Upload on Game Exit**: Detects when a game process exits and waits for a brief safety cooldown (45 seconds) to ensure all disk writes are finished before packing files into a `.zip` archive and uploading.
+- **5-Version Retention & Rotation**: Automatically retains the 5 most recent backups per game with a rolling rotation policy. A dedicated restore modal lets you restore any past save point with one click.
+- **Safe Manual Download & Restore**: Cloud downloads are never applied automatically in the background to avoid accidental overwrites during gameplay. You choose when to restore a save (from the game card or the history modal).
+- **Accurate Timestamp Preservation**: Local and remote modification dates are normalized to UTC and tracked down to the second.
+- **Live Cloud Telemetry**: Real-time footer indicators displaying used, total, and available storage on your connected cloud provider (Google Drive, Dropbox) with a sleek, responsive mini gauge.
+
+### 🧠 Intelligent Save Location Resolution
+- **Ludasavi Manifest Integration**: Downloads and caches the official [Ludasavi](https://github.com/mtkennerly/ludasavi-manifest) manifest covering save paths for over 10,000 PC games.
+- **Dynamic Path Resolution**: Supports environment variables (`%APPDATA%`, `%LOCALAPPDATA%`, `Saved Games`, `Documents`, Linux `$HOME` directories, etc.) and Steam user IDs (`SteamID` via Windows registry or directory inspection).
+- **DRM Emulator Support**: Tailored heuristics to locate saves generated by common emulator wrappers (RUNE, CODEX, TENOKE, EMPRESS, Goldberg SteamEmu, FLT, Razor1911, and more).
+
+### 🎮 Native Hydra Launcher Integration
+- **Direct LevelDB Access**: Safely queries Hydra Launcher's local LevelDB database (`hydra-db`) via temporary snapshot copies to avoid file locks.
+- **Smart Filtering**: Displays only installed, active games with valid executables (excluding official Steam imports that already possess native cloud synchronization).
+
+### 🖼️ Polished UI & Rich Visuals
+- **Animated Splash Screen**: Smooth startup screen featuring the official logo and a progress bar during game discovery and integrity checks.
+- **Official Steam Box Art**: Dynamically fetches banners and cover art using the Steam Store API and Cloudflare CDN.
+- **Live Status Badges**: Real-time status indicators for each game:
+  - 🟢 **Up to Date**: Local and remote saves are synchronized.
+  - 🔵 **Local Newer**: Local save ready to be uploaded to the cloud.
+  - 🟡 **Cloud Newer**: Newer cloud backup available.
+  - 📥 **To Download**: Cloud save available for a fresh game installation.
+  - ⚠️ **Never Synchronized** or **Save Not Found**.
+- **Quick Directory Access**: Direct one-click folder opening in your system file explorer.
+- **Integrated Game Save Reporting**: Report missing or incorrect game save paths directly from the app interface.
+
+### ⚡ Lightweight, Discrete & High-Performance
+- **Optimized Memory Footprint**: Powered by the [`mimalloc`](https://crates.io/crates/mimalloc) high-performance allocator and asynchronous manifest preloading to ensure minimal RAM usage.
+- **System Tray**: Native system tray integration (Linux & Windows) with quick actions ("Open", "Quit") and status tooltip.
+- **Native OS Notifications**: Notifies you when games start, close, or finish syncing.
+
+---
+
+## 📐 Architecture & How It Works
 
 ```mermaid
 flowchart TD
@@ -77,24 +77,24 @@ flowchart TD
     end
 
     subgraph HSC_Core ["Hydra Save Companion (Tauri / Rust)"]
-        Scanner[Lecteur LevelDB] -->|Copie temporaire & Parse| GamesList[Liste des jeux installés]
-        Manifest[Cache Ludasavi Manifest] -->|Résolution des placeholders| SaveResolver[Localisateur de Sauvegardes]
-        Watcher[Process Watcher sysinfo] -->|Écoute 3s| Events[Événements Tauri: game-started / game-closed]
-        Archiver[Compresseur ZIP / Restaurateur]
-        StorageChecker[Calculateur de Quota Cloud]
+        Scanner[LevelDB Scanner] -->|Temp Snapshot & Parse| GamesList[Installed Games List]
+        Manifest[Ludasavi Manifest Cache] -->|Placeholder Resolution| SaveResolver[Save Path Resolver]
+        Watcher[Process Watcher sysinfo] -->|3s Polling| Events[Tauri Events: game-started / game-closed]
+        Archiver[ZIP Compressor / Restorer]
+        StorageChecker[Cloud Quota Calculator]
     end
 
-    subgraph HSC_UI ["Interface Utilisateur (React 19 + Tailwind v4)"]
-        SplashScreen[Écran de démarrage fluide]
-        Dashboard[Tableau de bord des jeux]
-        Badges[Badges d'état de synchronisation]
-        WatcherHook[Hook useWatcher & upload auto]
-        Footer[Télémétrie Stockage Cloud]
+    subgraph HSC_UI ["User Interface (React 19 + Tailwind v4)"]
+        SplashScreen[Splash Screen]
+        Dashboard[Games Dashboard]
+        Badges[Sync Status Badges]
+        WatcherHook[useWatcher Hook & Auto Upload]
+        Footer[Cloud Storage Telemetry]
     end
 
-    subgraph CloudStorage ["Stockage Cloud"]
+    subgraph CloudStorage ["Cloud Storage"]
         GDrive[Google Drive API v3 - Quota & Rotation]
-        Dropbox[Dropbox API v2 - Quota & Synchronisation]
+        Dropbox[Dropbox API v2 - Quota & Synchronization]
     end
 
     DB --> Scanner
@@ -102,145 +102,145 @@ flowchart TD
     SaveResolver --> Dashboard
     Events --> WatcherHook
     WatcherHook --> Archiver
-    Archiver <-->|Upload auto & Restauration manuelle OAuth2| GDrive
+    Archiver <-->|Auto Upload & Manual OAuth2 Restore| GDrive
     StorageChecker --> Footer
 ```
 
 ---
 
-### 1. Multi-Cloud & Authentification Unifiée
-- **Flux unifié** : L'authentification OAuth est gérée via un serveur local de loopback (`tauri-plugin-oauth` sur `http://localhost:8000/`) qui intercepte automatiquement les codes d'autorisation.
-- **Google Drive** : Entièrement implémenté (rafraîchissement automatique des tokens, création du dossier, upload/download, rotation 5 sauvegardes, jauge d'espace).
-- **Dropbox** : Entièrement implémenté (OAuth2 avec refresh tokens, création du dossier, téléversement avec horodatage client_modified précis, téléchargement, télémétrie de quota).
-- **Proton Drive** : Désactivé dans l'UI (en l'absence d'API OAuth publique et en raison du chiffrement SRP/PGP propriétaire, l'utilisation du dossier local synchronisé Proton Drive est recommandée).
+### 1. Multi-Cloud & Unified Authentication
+- **Unified Flow**: OAuth authentication is handled via a shared loopback server (`tauri-plugin-oauth` on `http://localhost:8000/`) that automatically intercepts incoming authorization codes.
+- **Google Drive**: Fully implemented (automatic token refresh, dedicated folder creation, upload/download, 5-save rotation policy, quota metrics).
+- **Dropbox**: Fully implemented (OAuth2 with refresh tokens, dedicated folder creation, upload with exact `client_modified` timestamp preservation, download, quota telemetry).
+- **Proton Drive**: Disabled in UI (due to the lack of a public third-party OAuth API and proprietary SRP/PGP encryption; a local synchronized folder setup is recommended instead).
 
-### 2. Télémétrie Cloud en Direct
-- Affichage en temps réel dans le footer de l'espace de stockage occupé, total et disponible sur votre Cloud connecté (Google Drive, Dropbox) avec micro-jauge ergonomique réactive.
+### 2. Live Cloud Telemetry
+- Real-time footer indicators for used, total, and available space on your active cloud account (Google Drive, Dropbox) with a responsive micro-gauge.
 
-### 3. Système de Signalement Intégré
-- Modale interactive permettant de signaler un problème d'emplacement de sauvegarde ou de synchronisation, avec envoi direct vers l'API de rapport (et transmission par email).
+### 3. Integrated Report System
+- Interactive modal to report save path inaccuracies or sync issues, sending structured details directly to the reporting API (and forwarding via email).
 
 ---
 
-## 🛠️ Stack Technique
+## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework** : [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Build tool** : [Vite](https://vitejs.dev/)
-- **Styles** : [Tailwind CSS v4](https://tailwindcss.com/)
-- **Gestion d'état & Cache** : [@tanstack/react-query v5](https://tanstack.com/query/latest)
-- **Tests unitaires** : [Vitest](https://vitest.dev/)
-- **Icônes** : [Lucide React](https://lucide.dev/)
+- **Framework**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styles**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **State Management & Caching**: [@tanstack/react-query v5](https://tanstack.com/query/latest)
+- **Unit Testing**: [Vitest](https://vitest.dev/)
+- **Icons**: [Lucide React](https://lucide.dev/)
 
 ### Backend (Tauri v2 / Rust)
-- **Runtime** : [Tauri v2](https://tauri.app/)
-- **Allocateur mémoire** : [`mimalloc`](https://crates.io/crates/mimalloc)
-- **Accès base de données** : [`rusty-leveldb`](https://crates.io/crates/rusty-leveldb)
-- **Surveillance système** : [`sysinfo`](https://crates.io/crates/sysinfo)
-- **Réseau & Requêtes** : [`reqwest`](https://crates.io/crates/reqwest) (asynchrone avec `tokio`)
-- **Archives & Fichiers** : [`zip`](https://crates.io/crates/zip), [`walkdir`](https://crates.io/crates/walkdir)
-- **Formats de données** : [`serde`](https://crates.io/crates/serde), [`serde_json`](https://crates.io/crates/serde_json), [`serde_yaml`](https://crates.io/crates/serde_yaml)
-- **Authentification** : [`tauri-plugin-oauth`](https://github.com/tauri-apps/tauri-plugin-oauth)
-- **Plugins Tauri** : `notification`, `store`, `opener`
+- **Runtime**: [Tauri v2](https://tauri.app/)
+- **Memory Allocator**: [`mimalloc`](https://crates.io/crates/mimalloc)
+- **Database Access**: [`rusty-leveldb`](https://crates.io/crates/rusty-leveldb)
+- **Process Monitoring**: [`sysinfo`](https://crates.io/crates/sysinfo)
+- **HTTP Client**: [`reqwest`](https://crates.io/crates/reqwest) (asynchronous with `tokio`)
+- **Archiving & Filesystem**: [`zip`](https://crates.io/crates/zip), [`walkdir`](https://crates.io/crates/walkdir)
+- **Serialization**: [`serde`](https://crates.io/crates/serde), [`serde_json`](https://crates.io/crates/serde_json), [`serde_yaml`](https://crates.io/crates/serde_yaml)
+- **Authentication**: [`tauri-plugin-oauth`](https://github.com/tauri-apps/tauri-plugin-oauth)
+- **Tauri Plugins**: `notification`, `store`, `opener`
 
 ---
 
-## 🚀 Installation & Démarrage
+## 🚀 Installation & Getting Started
 
-### Prérequis
-1. **Node.js** (v20 ou supérieur recommandé) et **pnpm** (ou npm / yarn).
-2. **Rust** et Cargo (installation via [rustup.rs](https://rustup.rs/)).
-3. Dépendances système Tauri selon votre OS (voir le [Guide officiel Tauri](https://tauri.app/start/prerequisites/)).
-4. **Hydra Launcher** installé sur votre machine avec au moins un jeu configuré.
+### Prerequisites
+1. **Node.js** (v20+ recommended) and **pnpm** (or npm / yarn).
+2. **Rust** and Cargo (install via [rustup.rs](https://rustup.rs/)).
+3. OS-specific Tauri dependencies (see the official [Tauri Prerequisites Guide](https://tauri.app/start/prerequisites/)).
+4. **Hydra Launcher** installed locally with at least one configured game.
 
-### 1. Cloner le projet
+### 1. Clone the repository
 ```bash
 git clone https://github.com/nathanlgn62/hydra-save-companion.git
 cd hydra-save-companion
 ```
 
-### 2. Installer les dépendances
+### 2. Install dependencies
 ```bash
 pnpm install
 ```
 
-### 3. Lancer les tests
+### 3. Run tests
 ```bash
-# Tests unitaires Frontend (Vitest)
+# Frontend Unit Tests (Vitest)
 pnpm test
 
-# Tests unitaires Backend (Rust)
+# Backend Unit Tests (Rust)
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-### 4. Lancer en mode développement
+### 4. Start development mode
 ```bash
 pnpm tauri dev
 ```
 
-### 5. Compiler l'application pour la production
+### 5. Build for production
 ```bash
 pnpm tauri build
 ```
-L'exécutable et l'installeur (MSI / EXE pour Windows, DEB / AppImage pour Linux) seront générés dans le dossier `src-tauri/target/release/bundle/`.
+The compiled binaries and installers (MSI / EXE for Windows, DEB / AppImage for Linux) will be generated in `src-tauri/target/release/bundle/`.
 
 ---
 
-## ⚙️ Variables d'Environnement
+## ⚙️ Environment Variables
 
-| Variable | Description | Requis |
+| Variable | Description | Required |
 | :--- | :--- | :---: |
-| `HSC_GC_ID` | Client ID Google Cloud OAuth 2.0 | **Oui** (pour Google Drive) |
-| `HSC_GS` | Client Secret Google Cloud OAuth 2.0 | **Oui** (pour Google Drive) |
-| `HSC_DBX_ID` | App Key Dropbox API | **Oui** (pour Dropbox) |
-| `HSC_DBX_SECRET` | App Secret Dropbox API | **Oui** (pour Dropbox) |
-| `VITE_REPORT_API_URL` | URL de l'API de signalement (rapport de bugs/saves) | Optionnel (défaut: `https://nathandev.fr/api/hydra-save-companion/report`) |
+| `HSC_GC_ID` | Google Cloud OAuth 2.0 Client ID | **Yes** (for Google Drive) |
+| `HSC_GS` | Google Cloud OAuth 2.0 Client Secret | **Yes** (for Google Drive) |
+| `HSC_DBX_ID` | Dropbox API App Key | **Yes** (for Dropbox) |
+| `HSC_DBX_SECRET` | Dropbox API App Secret | **Yes** (for Dropbox) |
+| `VITE_REPORT_API_URL` | Issue reporting endpoint URL | Optional (default: `https://nathandev.fr/api/hydra-save-companion/report`) |
 
 ---
 
-## 📁 Emplacements des données
+## 📁 Data Locations
 
-| Donnée | Emplacement |
+| Data | Location |
 | :--- | :--- |
-| **Paramètres utilisateur** | `settings.json` (via `@tauri-apps/plugin-store`) |
-| **Base Hydra Launcher (Windows)** | `%APPDATA%\hydralauncher\hydra-db` |
-| **Base Hydra Launcher (Linux)** | `~/.config/hydralauncher/hydra-db` ou `~/.local/share/hydralauncher/hydra-db` |
-| **Cache Manifeste Ludasavi** | Dossier temporaire système (`temp_dir()/hydra_companion/ludasavi_manifest.yaml`) |
+| **User Settings** | `settings.json` (managed via `@tauri-apps/plugin-store`) |
+| **Hydra Launcher Database (Windows)** | `%APPDATA%\hydralauncher\hydra-db` |
+| **Hydra Launcher Database (Linux)** | `~/.config/hydralauncher/hydra-db` or `~/.local/share/hydralauncher/hydra-db` |
+| **Ludasavi Manifest Cache** | System temp folder (`temp_dir()/hydra_companion/ludasavi_manifest.yaml`) |
 
 ---
 
 ## 🗺️ Roadmap
 
-- [x] Détection automatique des jeux installés via LevelDB Hydra.
-- [x] Intégration du catalogue communautaire Ludasavi YAML.
-- [x] Récupération automatique des jaquettes Steam.
-- [x] Watcher de processus en temps réel (`sysinfo`).
-- [x] Synchronisation avec Google Drive (OAuth2 + dossier dédié).
-- [x] Synchronisation avec Dropbox (OAuth2 + dossier dédié).
-- [x] Politique de rotation et rétention (historique des 5 dernières sauvegardes par jeu).
-- [x] Modale de restauration d'une version de sauvegarde antérieure.
-- [x] Téléversement automatique différé (cooldown à la fermeture du jeu).
-- [x] Téléchargement et restauration des sauvegardes à la demande (sécurité anti-écrasement).
-- [x] Jauge télémétrique de l'espace de stockage Cloud en temps réel.
-- [x] Écran de démarrage (Splash Screen) animé avec barre de chargement.
-- [x] System Tray (icône native, menu contextuel et gestion de fenêtre).
-- [x] Optimisation de l'empreinte mémoire via `mimalloc`.
-- [ ] Fournisseurs Cloud supplémentaires :
-  - [ ] Mega / WebDAV / Serveur auto-hébergé (Nextcloud)
+- [x] Automatic game discovery via Hydra LevelDB.
+- [x] Community Ludasavi YAML catalog integration.
+- [x] Automatic Steam cover art retrieval.
+- [x] Real-time process watcher (`sysinfo`).
+- [x] Google Drive synchronization (OAuth2 + dedicated folder).
+- [x] Dropbox synchronization (OAuth2 + dedicated folder).
+- [x] Retention and rotation policy (history of 5 most recent backups per game).
+- [x] Dedicated rollback/restore modal for previous saves.
+- [x] Delayed automatic upload (cooldown upon game process termination).
+- [x] Safe on-demand download & restore (anti-overwrite protection).
+- [x] Real-time cloud storage telemetry gauge.
+- [x] Smooth animated splash screen with progress bar.
+- [x] Native system tray (icon, contextual menu, window management).
+- [x] Memory footprint optimization via `mimalloc`.
+- [ ] Additional cloud providers:
+  - [ ] Mega / WebDAV / Self-hosted (Nextcloud)
 
 ---
 
-## 🤝 Contribution & Remerciements
+## 🤝 Contributing & Acknowledgements
 
-Les contributions, suggestions et signalements de bugs sont les bienvenus ! N'hésitez pas à ouvrir une Issue ou à soumettre une Pull Request.
+Contributions, bug reports, and suggestions are welcome! Feel free to open an Issue or submit a Pull Request.
 
-Un grand merci aux projets open-source qui rendent cette application possible :
-- **[Hydra Launcher](https://github.com/hydralauncher/hydra)** pour l'incroyable lanceur de jeux.
-- **[Ludasavi](https://github.com/mtkennerly/ludasavi)** et sa communauté pour leur travail colossal sur le répertoire de sauvegardes de jeux vidéo.
-- **[Tauri](https://tauri.app/)** pour ce framework desktop ultra-léger et moderne.
+Special thanks to the open-source projects making this tool possible:
+- **[Hydra Launcher](https://github.com/hydralauncher/hydra)** for the amazing game launcher.
+- **[Ludasavi](https://github.com/mtkennerly/ludasavi)** and its community for the extensive game save directory database.
+- **[Tauri](https://tauri.app/)** for the lightweight modern desktop framework.
 
 ---
 
-## 📝 Licence
+## 📝 License
 
-Ce projet est distribué sous la licence **MIT**. Consultez le fichier `LICENSE` pour plus d'informations.
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
