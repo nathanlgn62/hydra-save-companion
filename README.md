@@ -21,12 +21,12 @@ Automatically back up, sync, and restore your PC game saves across the cloud wit
 
 ## 💡 Why Hydra Save Companion?
 
-**[Hydra Launcher](https://github.com/hydralauncher/hydra)** is a powerful open-source game launcher. However, games installed independently from official digital distribution platforms (Steam, Epic, GOG) lack automated cloud save synchronization (**Steam Cloud**). When switching machines, reinstalling your OS, or hopping between a desktop PC and a handheld device (ROG Ally, Steam Deck), saves can easily be lost or prove cumbersome to transfer manually.
+**[Hydra Launcher](https://github.com/hydralauncher/hydra)** is a powerful open-source game launcher. While official cloud save synchronization exists in Hydra, it is **locked behind a paid subscription / tier**. 
 
-**Hydra Save Companion (HSC)** solves this:
+For players who prefer not to pay a recurring fee or who already have plenty of unused storage on their own cloud providers (Google Drive, Dropbox), **Hydra Save Companion (HSC)** provides a **100% free, open-source, bring-your-own-cloud alternative**:
 - Reads your installed game library directly from **Hydra Launcher**.
 - Automatically locates the exact save path for each game using the vast community-driven **Ludasavi** database.
-- Monitors game processes in the background and **uploads your saves to the cloud as soon as you exit a game**.
+- Monitors game processes in the background and **uploads your saves to your own cloud as soon as you exit a game**.
 - **Detects newer saves in the cloud** and lets you download or restore them with a single click.
 
 ---
