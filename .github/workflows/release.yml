@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "src/**"
+      - "src-tauri/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "Cargo.lock"
+      - ".github/workflows/release.yml"
 
 permissions:
   contents: write
@@ -27,15 +34,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
           version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -63,6 +71,25 @@ jobs:
           project-slug: "hydra-save-companion"
           env-slug: "dev"
 
+      - name: Generate Changelog
+        id: changelog
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name="v$VERSION" \
+            --jq .body 2>/dev/null || true)
+
+          if [ -z "$NOTES" ]; then
+            NOTES="Automated release for v$VERSION. See commit history for detailed changes."
+          fi
+
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Build and Release Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -70,7 +97,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Hydra Save Companion v__VERSION__"
-          releaseBody: "See commits for recent updates and improvements."
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

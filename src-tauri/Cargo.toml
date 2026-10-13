@@ -44,10 +44,9 @@ tauri-plugin-autostart = "2.7.0"
 winreg = "0.52"
 
 
-# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+# Optimized for fast CI compilation while keeping low binary footprint
 [profile.release]
-codegen-units = 1
-lto = true
 opt-level = 3
+lto = "thin"
 panic = "abort"
 strip = true
