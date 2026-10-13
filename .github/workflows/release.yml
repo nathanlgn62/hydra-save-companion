@@ -55,9 +55,9 @@ jobs:
         run: pnpm install
 
       - name: Fetch secrets from Infisical
-        uses: Infisical/secrets-action@v1.0.8
+        uses: Infisical/secrets-action@v1.0.18
         with:
-          method: universal-auth
+          method: "universal-auth"
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           project-slug: "hydra-save-companion"
