@@ -28,6 +28,7 @@ export function useGames() {
 
   return useQuery({
     queryKey: ["games", isDemo, isDriveConnected, cloudProvider, storedToken],
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
       let installedGames: HydraGame[] = [];
       if (isDemo) {
@@ -36,8 +37,8 @@ export function useGames() {
         try {
           installedGames = await invoke<HydraGame[]>("get_installed_games");
         } catch (e) {
-          console.warn("Hydra games not detected, checking demo mode or empty:", e);
-          installedGames = [];
+          console.warn("Hydra games detection error:", e);
+          throw e;
         }
       }
 
@@ -165,7 +166,7 @@ export function useUploadSave() {
         "Save upload completed.",
       );
       showToast("Save upload completed.", "success");
-      queryClient.refetchQueries({ queryKey: ["games"] });
+      queryClient.invalidateQueries({ queryKey: ["games"] });
       queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
     },
     onError: () => {

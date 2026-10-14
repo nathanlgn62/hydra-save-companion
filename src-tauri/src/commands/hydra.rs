@@ -1,58 +1,76 @@
 use rusty_leveldb::{LdbIterator, Options, DB};
 use std::env;
 use std::fs;
+use std::sync::{Mutex, OnceLock};
 
 use crate::funcs::hydra::{copy_dir_all, get_hydra_db_dir};
 use crate::models::game::HydraGame;
 
+static HYDRA_DB_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn get_hydra_db_lock() -> &'static Mutex<()> {
+    HYDRA_DB_MUTEX.get_or_init(|| Mutex::new(()))
+}
+
 #[tauri::command]
 pub async fn get_installed_games() -> Result<Vec<HydraGame>, String> {
     tokio::task::spawn_blocking(move || {
+        let _guard = get_hydra_db_lock().lock().map_err(|e| e.to_string())?;
+
         let original_db_path = get_hydra_db_dir()?;
 
-    if !original_db_path.exists() {
-        return Err(format!("BDD Hydra introuvable : {:?}", original_db_path));
-    }
+        if !original_db_path.exists() {
+            return Err(format!("BDD Hydra introuvable : {:?}", original_db_path));
+        }
 
-    let temp_db_path = env::temp_dir().join("hydra_companion_db_copy");
-    if temp_db_path.exists() {
-        let _ = fs::remove_dir_all(&temp_db_path);
-    }
+        let unique_id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let temp_db_path = env::temp_dir().join(format!(
+            "hydra_companion_db_copy_{}_{}",
+            std::process::id(),
+            unique_id
+        ));
 
-    copy_dir_all(&original_db_path, &temp_db_path)
-        .map_err(|e| format!("Erreur lors de la copie de la BDD : {}", e))?;
+        copy_dir_all(&original_db_path, &temp_db_path)
+            .map_err(|e| format!("Erreur lors de la copie de la BDD : {}", e))?;
 
-    let mut opt = Options::default();
-    opt.create_if_missing = false;
+        let mut opt = Options::default();
+        opt.create_if_missing = false;
 
-    let mut db = DB::open(&temp_db_path, opt)
-        .map_err(|e| format!("Impossible d'ouvrir LevelDB : {:?}", e))?;
+        let mut db = DB::open(&temp_db_path, opt)
+            .map_err(|e| format!("Impossible d'ouvrir LevelDB : {:?}", e))?;
 
-    let mut games = Vec::new();
-    let mut iter = db
-        .new_iter()
-        .map_err(|e| format!("Erreur d'itérateur : {:?}", e))?;
+        let mut games = Vec::new();
+        let mut iter = db
+            .new_iter()
+            .map_err(|e| format!("Erreur d'itérateur : {:?}", e))?;
 
-    while let Some((key, value)) = iter.next() {
-        if key.starts_with(b"!games!") {
-            if let Ok(value_str) = String::from_utf8(value) {
-                if let Ok(game) = serde_json::from_str::<HydraGame>(&value_str) {
-                    let is_active = !game.is_deleted.unwrap_or(false);
-                    let is_steam_import = game.has_active_steam_import.unwrap_or(false);
-                    let has_executable = game
-                        .executable_path
-                        .as_ref()
-                        .is_some_and(|path| !path.trim().is_empty());
+        while let Some((key, value)) = iter.next() {
+            if key.starts_with(b"!games!") {
+                if let Ok(value_str) = String::from_utf8(value) {
+                    if let Ok(game) = serde_json::from_str::<HydraGame>(&value_str) {
+                        let is_active = !game.is_deleted.unwrap_or(false);
+                        let is_steam_import = game.has_active_steam_import.unwrap_or(false);
+                        let has_executable = game
+                            .executable_path
+                            .as_ref()
+                            .is_some_and(|path| !path.trim().is_empty());
 
-                    if is_active && has_executable && !is_steam_import {
-                        games.push(game);
+                        if is_active && has_executable && !is_steam_import {
+                            games.push(game);
+                        }
                     }
                 }
             }
         }
-    }
 
-        let _ = fs::remove_dir_all(temp_db_path);
+        // Libérer explicitement iter et db avant suppression du dossier (requis sous Windows)
+        drop(iter);
+        drop(db);
+
+        let _ = fs::remove_dir_all(&temp_db_path);
 
         Ok(games)
     })
@@ -151,5 +169,33 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
     }
 
     Ok(demo_games)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_installed_games_repeated() {
+        let res1 = get_installed_games().await;
+        println!("Call 1: {:?}", res1.as_ref().map(|v| v.len()));
+        assert!(res1.is_ok(), "Call 1 should succeed: {:?}", res1.err());
+
+        let res2 = get_installed_games().await;
+        println!("Call 2: {:?}", res2.as_ref().map(|v| v.len()));
+        assert!(res2.is_ok(), "Call 2 should succeed: {:?}", res2.err());
+    }
+
+    #[tokio::test]
+    async fn test_get_installed_games_concurrent() {
+        let (r1, r2) = tokio::join!(
+            get_installed_games(),
+            get_installed_games()
+        );
+        println!("Concurrent 1: {:?}", r1.as_ref().map(|v| v.len()));
+        println!("Concurrent 2: {:?}", r2.as_ref().map(|v| v.len()));
+        assert!(r1.is_ok(), "Concurrent 1 failed: {:?}", r1.err());
+        assert!(r2.is_ok(), "Concurrent 2 failed: {:?}", r2.err());
+    }
 }
 
