@@ -90,6 +90,18 @@ jobs:
           echo "$NOTES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
+      - name: Verify signing key
+        shell: bash
+        env:
+          KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "✓ TAURI_SIGNING_PRIVATE_KEY is loaded (${#KEY} chars)."
+          else
+            echo "::error ::TAURI_SIGNING_PRIVATE_KEY is missing! Make sure it is added in GitHub Secrets or Infisical."
+            exit 1
+          fi
+
       - name: Build and Release Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
