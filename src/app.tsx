@@ -1,14 +1,16 @@
 import { RotateCcw, SearchX } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AlertBanner from "./components/banner/alert-banner";
 import Footer from "./components/layout/footer";
 import GameCard from "./components/game/game-card";
 import GameFilterBar from "./components/game/game-filter-bar";
 import Header from "./components/layout/header";
 import SplashScreen from "./components/layout/splash-screen";
+import UpdateOverlay from "./components/layout/update-overlay";
 import ToastContainer from "./components/toast/toast-container";
 import { useGames } from "./hooks/use-games";
 import { useSettings } from "./hooks/use-settings";
+import { useUpdater } from "./hooks/use-updater";
 import { useWatcher } from "./hooks/use-watcher";
 import { useCloudStatus } from "./stores/cloud-store";
 import { SaveStatusFilter } from "./types";
@@ -26,6 +28,23 @@ export default function App() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SaveStatusFilter>("all");
+  const [splashFinished, setSplashFinished] = useState(false);
+
+  const {
+    status: updaterStatus,
+    updateInfo,
+    progress: updateProgress,
+    error: updaterError,
+    checkForUpdates,
+    startDownloadAndInstall,
+    quitApp,
+    restartApp,
+  } = useUpdater();
+
+  // Check for updates on startup
+  useEffect(() => {
+    checkForUpdates();
+  }, [checkForUpdates]);
 
   useWatcher();
 
@@ -93,7 +112,23 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-950 text-slate-100 select-none overflow-hidden font-sans">
-      <SplashScreen isLoading={isLoading} />
+      <SplashScreen
+        isLoading={isLoading}
+        onFinish={() => setSplashFinished(true)}
+      />
+
+      {splashFinished && (
+        <UpdateOverlay
+          status={updaterStatus}
+          updateInfo={updateInfo}
+          progress={updateProgress}
+          error={updaterError}
+          onDownloadAndInstall={startDownloadAndInstall}
+          onQuit={quitApp}
+          onRestart={restartApp}
+        />
+      )}
+
       <Header />
 
       <main className="flex flex-col flex-1 px-4 pt-4 pb-18 overflow-y-auto min-h-0 relative">
