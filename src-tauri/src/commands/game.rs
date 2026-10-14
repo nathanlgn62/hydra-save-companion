@@ -18,6 +18,7 @@ pub async fn get_game_save_info(
     app_id: Option<String>,
     title: String,
     custom_path: Option<String>,
+    executable_path: Option<String>,
 ) -> SaveInfo {
     tokio::task::spawn_blocking(move || {
         println!(
@@ -76,8 +77,11 @@ pub async fn get_game_save_info(
                         });
 
                         if is_windows {
-                            let resolved_str =
-                                resolve_ludasavi_placeholders(raw_path, app_id.as_deref());
+                            let resolved_str = resolve_ludasavi_placeholders(
+                                raw_path,
+                                app_id.as_deref(),
+                                executable_path.as_deref(),
+                            );
 
                             let lower = resolved_str.to_lowercase();
 
@@ -111,25 +115,17 @@ pub async fn get_game_save_info(
                     if let Some(resolved_str) = best_resolved_str {
                         println!("[DEBUG] Manifest - Chemin retenu : {}", resolved_str);
 
-                        // Si le chemin contient un joker (*), on essaie de trouver le fichier correspondant
-                        // ou on se replie sur le dossier parent pour l'existence et la date
-                        let evaluated_path = if resolved_str.contains('*') {
-                            if let Some(parent) = Path::new(&resolved_str).parent() {
-                                if parent.exists() {
-                                    // On prend le dossier parent (ex: gamesaves) pour que .exists() et les stats fonctionnent
-                                    parent.to_path_buf()
-                                } else {
-                                    resolve_path_pattern(&resolved_str)
-                                        .unwrap_or_else(|| expand_path(&resolved_str))
-                                }
-                            } else {
-                                resolve_path_pattern(&resolved_str)
+                        let evaluated_path = resolve_path_pattern(&resolved_str).unwrap_or_else(|| {
+                            if resolved_str.contains('*') {
+                                Path::new(&resolved_str)
+                                    .parent()
+                                    .filter(|p| p.exists())
+                                    .map(|p| p.to_path_buf())
                                     .unwrap_or_else(|| expand_path(&resolved_str))
+                            } else {
+                                expand_path(&resolved_str)
                             }
-                        } else {
-                            resolve_path_pattern(&resolved_str)
-                                .unwrap_or_else(|| expand_path(&resolved_str))
-                        };
+                        });
 
                         let exists = evaluated_path.exists();
                         let path_str = evaluated_path.to_string_lossy().into_owned();
@@ -231,3 +227,50 @@ pub async fn get_steam_cover(
     // Fallback chaîne vide (le frontend gère le cas image error / absence de jaquette)
     Ok(String::new())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_save_info_4_games() {
+        let games = vec![
+            (
+                "STAR WARS Zero Company™",
+                Some("2075800".to_string()),
+                Some("D:\\Games\\STAR WARS Zero Company\\SWZeroCompany.exe".to_string()),
+            ),
+            (
+                "The Witcher 3: Wild Hunt",
+                Some("292030".to_string()),
+                Some("C:\\Games\\The Witcher 3 Wild Hunt GOTY\\bin\\x64_dx12\\witcher3.exe".to_string()),
+            ),
+            (
+                "METAL GEAR SOLID 4: Guns of the Patriots - Master Collection Version",
+                Some("2492670".to_string()),
+                Some("D:\\Games\\METAL GEAR SOLID 4 Guns of the Patriots Master Collection Version\\Launcher\\launcher.exe".to_string()),
+            ),
+            (
+                "1666: Amsterdam",
+                Some("3949550".to_string()),
+                Some("D:\\Games\\1666 Amsterdam\\1666Amsterdam\\Amsterdam\\Binaries\\Win64\\1666Amsterdam.exe".to_string()),
+            ),
+            (
+                "METAL GEAR SOLID: Peace Walker - Master Collection Version",
+                Some("4184360".to_string()),
+                Some("D:\\Games\\METAL GEAR SOLID Peace Walker Master Collection Version\\launcher\\launcher.exe".to_string()),
+            ),
+        ];
+
+        for (title, app_id, exec) in games {
+            let res = get_game_save_info(app_id.clone(), title.to_string(), None, exec).await;
+            println!("\n=== RESULT FOR '{}' (app_id: {:?}) ===", title, app_id);
+            println!("  ludasavi_path_exists: {}", res.ludasavi_path_exists);
+            println!("  local_path_exists: {}", res.local_path_exists);
+            println!("  resolved_path: {:?}", res.resolved_path);
+            println!("  last_modified: {:?}", res.last_modified);
+            assert!(res.ludasavi_path_exists, "Game '{}' should be found in Ludasavi manifest!", title);
+        }
+    }
+}
+

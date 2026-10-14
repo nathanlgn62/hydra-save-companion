@@ -48,6 +48,7 @@ export function useGames() {
             invoke<SaveInfoResponse>("get_game_save_info", {
               appId: game.objectId ?? null,
               title: game.title,
+              executablePath: game.executablePath ?? null,
             }).catch(() => null),
             invoke<string>("get_steam_cover", {
               appId: game.objectId ? Number(game.objectId) : null,

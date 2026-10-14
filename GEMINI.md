@@ -35,7 +35,8 @@ Hydra Save Companion is a desktop utility built with Tauri (Rust + React/TypeScr
 - **Install dependencies:** `pnpm install`
 - **Run frontend tests:** `pnpm test`
 - **Run Rust tests:** `cargo test --manifest-path src-tauri/Cargo.toml`
-- **Run in development mode (Tauri):** `pnpm run tauri dev`
+- **Run in development mode (with Infisical):** `pnpm run tauri:dev`
+- **Run in development mode (direct):** `pnpm run tauri dev`
 - **Build for production:** `pnpm tauri build`
 
 ## AI Development Guidelines

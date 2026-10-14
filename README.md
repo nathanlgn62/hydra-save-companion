@@ -174,6 +174,14 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 ### 4. Start development mode
+
+With **[Infisical](https://infisical.com/)** (recommended in development to automatically inject API keys & secrets):
+```bash
+pnpm tauri:dev
+```
+*(Alternative via Infisical CLI directly: `infisical run --env=dev -- pnpm tauri dev`)*
+
+Without Infisical (ensure your environment variables are set in your shell or `.env` file):
 ```bash
 pnpm tauri dev
 ```
@@ -188,12 +196,15 @@ The compiled binaries and installers (MSI / EXE for Windows, DEB / AppImage for 
 
 ## ⚙️ Environment Variables
 
+Secrets can be managed and automatically injected in development using **[Infisical](https://infisical.com/)** via `pnpm tauri:dev`.
+
 | Variable | Description | Required |
 | :--- | :--- | :---: |
 | `HSC_GC_ID` | Google Cloud OAuth 2.0 Client ID | **Yes** (for Google Drive) |
 | `HSC_GS` | Google Cloud OAuth 2.0 Client Secret | **Yes** (for Google Drive) |
 | `HSC_DBX_ID` | Dropbox API App Key | **Yes** (for Dropbox) |
 | `HSC_DBX_SECRET` | Dropbox API App Secret | **Yes** (for Dropbox) |
+| `STEAM_GRID_DB` | SteamGridDB API Key (for game box art & posters) | Optional (recommended) |
 | `VITE_REPORT_API_URL` | Issue reporting endpoint URL | Optional (default: `https://nathandev.fr/api/hydra-save-companion/report`) |
 
 ---
