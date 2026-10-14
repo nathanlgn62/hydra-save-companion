@@ -1,4 +1,6 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useModalAnimation } from "../../hooks/use-modal-animation";
 import { UserSettings } from "../../types";
 import Toggle from "../ui/toggle";
@@ -18,6 +20,14 @@ export default function SettingsModal({
   updateSettings,
   loadingSettings,
 }: SettingsModalProps) {
+  const [appVersion, setAppVersion] = useState<string>("1.0.0");
+
+  useEffect(() => {
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion("1.0.0"));
+  }, []);
+
   const { isRendered, isVisible, closeWithAnimation } = useModalAnimation(
     isOpen,
     onClose,
@@ -41,7 +51,9 @@ export default function SettingsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-base font-semibold text-slate-100">Settings</h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-semibold text-slate-100">Settings</h2>
+          </div>
           <button
             type="button"
             onClick={closeWithAnimation}
@@ -73,9 +85,7 @@ export default function SettingsModal({
                   }
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition cursor-pointer"
                 >
-                  <option value="afterGameClose">
-                    After every game exit
-                  </option>
+                  <option value="afterGameClose">After every game exit</option>
                   <option value="manually">Manual only</option>
                 </select>
               </div>
@@ -118,7 +128,11 @@ export default function SettingsModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/50">
+        <div className="px-6 py-3.5 border-t border-slate-800 flex items-center justify-between bg-slate-950/50">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
+            <span>Hydra Save Companion v{appVersion}</span>
+          </div>
           <button
             type="button"
             onClick={closeWithAnimation}
