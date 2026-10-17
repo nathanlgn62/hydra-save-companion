@@ -20,22 +20,22 @@ pub async fn get_valid_access_token(
     let p = provider.unwrap_or("google-drive").to_lowercase();
     let (client_id, client_secret, token_url) = match p.as_str() {
         "google-drive" | "gdrive" | "google" => {
-            let id = std::env::var("HSC_GC_ID").unwrap_or_else(|_| {
+            let id = crate::utils::utils::get_env_var("HSC_GC_ID").unwrap_or_else(|| {
                 "742327849744-gsham3lda4i5pm37jmu2cj10c6mf215i.apps.googleusercontent.com"
                     .to_string()
             });
-            let secret = std::env::var("HSC_GS")
-                .unwrap_or_else(|_| "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".to_string());
+            let secret = crate::utils::utils::get_env_var("HSC_GS")
+                .unwrap_or_else(|| "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".to_string());
             (id, secret, "https://oauth2.googleapis.com/token")
         }
         "dropbox" => {
-            let id = std::env::var("HSC_DBX_ID").unwrap_or_default();
-            let secret = std::env::var("HSC_DBX_SECRET").unwrap_or_default();
+            let id = crate::utils::utils::get_env_var("HSC_DBX_ID").unwrap_or_default();
+            let secret = crate::utils::utils::get_env_var("HSC_DBX_SECRET").unwrap_or_default();
             (id, secret, "https://api.dropbox.com/oauth2/token")
         }
         "proton-drive" | "proton" => {
-            let id = std::env::var("HSC_PROTON_ID").unwrap_or_default();
-            let secret = std::env::var("HSC_PROTON_SECRET").unwrap_or_default();
+            let id = crate::utils::utils::get_env_var("HSC_PROTON_ID").unwrap_or_default();
+            let secret = crate::utils::utils::get_env_var("HSC_PROTON_SECRET").unwrap_or_default();
             (id, secret, "https://account.proton.me/oauth/token")
         }
         _ => return Ok(access_token.to_string()),

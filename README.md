@@ -192,6 +192,16 @@ pnpm tauri build
 ```
 The compiled binaries and installers (MSI / EXE for Windows, DEB / AppImage for Linux) will be generated in `src-tauri/target/release/bundle/`.
 
+### 6. Publish a new release (GitHub Actions)
+The release workflow is triggered on every push to `main`:
+1. Bump the version in `package.json` and `src-tauri/Cargo.toml` (e.g. `1.0.1` -> `1.0.2`). `src-tauri/tauri.conf.json` automatically mirrors `package.json`.
+2. Commit and push to `main`:
+   ```bash
+   git commit -am "chore: bump version to 1.0.2"
+   git push origin main
+   ```
+3. GitHub Actions will fetch secrets from Infisical, compile the binaries with compile-time secret baking, create the new Git tag `vX.Y.Z`, and publish the release assets.
+
 ---
 
 ## ⚙️ Environment Variables

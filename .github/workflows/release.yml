@@ -71,6 +71,20 @@ jobs:
           project-slug: "hydra-save-companion"
           env-slug: "dev"
 
+      - name: Verify Infisical secrets
+        shell: bash
+        run: |
+          echo "=== Verifying Infisical secrets injection ==="
+          SECRETS=("STEAM_GRID_DB" "HSC_GC_ID" "HSC_GS" "HSC_DBX_ID" "HSC_DBX_SECRET" "HSC_PROTON_ID" "HSC_PROTON_SECRET" "TAURI_SIGNING_PRIVATE_KEY")
+          for VAR in "${SECRETS[@]}"; do
+            VAL="${!VAR}"
+            if [ -n "$VAL" ]; then
+              echo "✓ $VAR is loaded (${#VAL} chars)"
+            else
+              echo "⚠ Warning: $VAR is NOT defined in environment"
+            fi
+          done
+
       - name: Generate Changelog
         id: changelog
         shell: bash
@@ -108,6 +122,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          STEAM_GRID_DB: ${{ env.STEAM_GRID_DB }}
+          HSC_GC_ID: ${{ env.HSC_GC_ID }}
+          HSC_GS: ${{ env.HSC_GS }}
+          HSC_DBX_ID: ${{ env.HSC_DBX_ID }}
+          HSC_DBX_SECRET: ${{ env.HSC_DBX_SECRET }}
+          HSC_PROTON_ID: ${{ env.HSC_PROTON_ID }}
+          HSC_PROTON_SECRET: ${{ env.HSC_PROTON_SECRET }}
         with:
           tagName: v__VERSION__
           releaseName: "Hydra Save Companion v__VERSION__"

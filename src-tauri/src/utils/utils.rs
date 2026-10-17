@@ -173,6 +173,33 @@ pub fn restore_save_from_zip(
     Ok(())
 }
 
+/// Récupère une variable de configuration ou un secret d'API.
+/// 1. Priorité aux variables d'environnement système à l'exécution (override dev / OS)
+/// 2. Repli sur les variables intégrées à la compilation (CI / Infisical build)
+pub fn get_env_var(key: &str) -> Option<String> {
+    if let Ok(val) = std::env::var(key) {
+        let trimmed = val.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    let compile_time = match key {
+        "STEAM_GRID_DB" => option_env!("STEAM_GRID_DB"),
+        "HSC_GC_ID" => option_env!("HSC_GC_ID"),
+        "HSC_GS" => option_env!("HSC_GS"),
+        "HSC_DBX_ID" => option_env!("HSC_DBX_ID"),
+        "HSC_DBX_SECRET" => option_env!("HSC_DBX_SECRET"),
+        "HSC_PROTON_ID" => option_env!("HSC_PROTON_ID"),
+        "HSC_PROTON_SECRET" => option_env!("HSC_PROTON_SECRET"),
+        _ => None,
+    };
+
+    compile_time
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,5 +294,14 @@ mod tests {
         assert_eq!(fs::read(restored_file).unwrap(), b"test save game data content");
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_get_env_var() {
+        assert_eq!(get_env_var("NON_EXISTING_SECRET_KEY_12345"), None);
+
+        std::env::set_var("TEST_HSC_CUSTOM_KEY", "custom_val");
+        assert_eq!(get_env_var("TEST_HSC_CUSTOM_KEY"), Some("custom_val".to_string()));
+        std::env::remove_var("TEST_HSC_CUSTOM_KEY");
     }
 }

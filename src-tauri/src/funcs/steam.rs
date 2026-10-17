@@ -3,11 +3,8 @@ pub async fn get_steamgriddb_cover(
     app_id: Option<i64>,
     title: Option<&str>,
 ) -> Option<String> {
-    let api_key = std::env::var("STEAM_GRID_DB").ok()?;
-    let api_key = api_key.trim();
-    if api_key.is_empty() {
-        return None;
-    }
+    let api_key = crate::utils::utils::get_env_var("STEAM_GRID_DB")?;
+    let api_key = api_key.as_str();
 
     let extract_grid_url = |json: &serde_json::Value| -> Option<String> {
         let data = json.get("data")?.as_array()?;

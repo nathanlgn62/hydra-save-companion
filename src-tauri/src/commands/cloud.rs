@@ -140,18 +140,34 @@ pub async fn login_cloud(app: tauri::AppHandle, provider: String) -> Result<Stri
         _ => return Err("Fournisseur cloud inconnu".into()),
     };
 
-    let client_id = std::env::var(client_id_env).map_err(|_| {
-        format!(
-            "La variable d'environnement pour l'ID de {} est manquante",
-            provider
-        )
-    })?;
-    let client_secret = std::env::var(client_secret_env).map_err(|_| {
-        format!(
-            "La variable d'environnement pour le Secret de {} est manquante",
-            provider
-        )
-    })?;
+    let client_id = crate::utils::utils::get_env_var(client_id_env)
+        .or_else(|| {
+            if client_id_env == "HSC_GC_ID" {
+                Some("742327849744-gsham3lda4i5pm37jmu2cj10c6mf215i.apps.googleusercontent.com".to_string())
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| {
+            format!(
+                "La variable d'environnement pour l'ID de {} est manquante",
+                provider
+            )
+        })?;
+    let client_secret = crate::utils::utils::get_env_var(client_secret_env)
+        .or_else(|| {
+            if client_secret_env == "HSC_GS" {
+                Some("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".to_string())
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| {
+            format!(
+                "La variable d'environnement pour le Secret de {} est manquante",
+                provider
+            )
+        })?;
 
     let redirect_uri = if provider == "dropbox" {
         "http://localhost:8000/"
