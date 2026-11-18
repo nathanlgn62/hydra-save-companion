@@ -50,6 +50,7 @@ pub async fn get_installed_games() -> Result<Vec<HydraGame>, String> {
         while let Some((key, value)) = iter.next() {
             if key.starts_with(b"!games!") {
                 if let Ok(value_str) = String::from_utf8(value) {
+                    println!("[DEBUG][Hydra DB Raw] {} => {}", String::from_utf8_lossy(&key), value_str);
                     if let Ok(game) = serde_json::from_str::<HydraGame>(&value_str) {
                         let is_active = !game.is_deleted.unwrap_or(false);
                         let is_steam_import = game.has_active_steam_import.unwrap_or(false);
@@ -59,6 +60,7 @@ pub async fn get_installed_games() -> Result<Vec<HydraGame>, String> {
                             .is_some_and(|path| !path.trim().is_empty());
 
                         if is_active && has_executable && !is_steam_import {
+                            println!("[DEBUG][Hydra DB] Jeu récupéré : {:?}", game);
                             games.push(game);
                         }
                     }
@@ -72,6 +74,11 @@ pub async fn get_installed_games() -> Result<Vec<HydraGame>, String> {
 
         let _ = fs::remove_dir_all(&temp_db_path);
 
+        println!(
+            "[DEBUG][Hydra DB] Total jeux récupérés ({}) : {:#?}",
+            games.len(),
+            games
+        );
         Ok(games)
     })
     .await
@@ -113,7 +120,10 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             shop: Some("steam".to_string()),
             executable_path: Some("/tmp/eldenring.exe".to_string()),
             is_deleted: Some(false),
-            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/library_600x900_2x.jpg".to_string()),
+            icon_url: Some(
+                "https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/library_600x900_2x.jpg"
+                    .to_string(),
+            ),
             has_active_steam_import: Some(false),
         },
         HydraGame {
@@ -122,7 +132,10 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             shop: Some("steam".to_string()),
             executable_path: Some("/tmp/hollow_knight.exe".to_string()),
             is_deleted: Some(false),
-            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/367520/library_600x900_2x.jpg".to_string()),
+            icon_url: Some(
+                "https://cdn.cloudflare.steamstatic.com/steam/apps/367520/library_600x900_2x.jpg"
+                    .to_string(),
+            ),
             has_active_steam_import: Some(false),
         },
         HydraGame {
@@ -131,7 +144,10 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
             shop: Some("steam".to_string()),
             executable_path: Some("/tmp/Cyberpunk2077.exe".to_string()),
             is_deleted: Some(false),
-            icon_url: Some("https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/library_600x900_2x.jpg".to_string()),
+            icon_url: Some(
+                "https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/library_600x900_2x.jpg"
+                    .to_string(),
+            ),
             has_active_steam_import: Some(false),
         },
     ];
@@ -141,9 +157,9 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
         for entry in entries.flatten() {
             if entry.path().is_dir() {
                 if let Some(folder_name) = entry.file_name().to_str() {
-                    let already_exists = demo_games.iter().any(|g| {
-                        g.title.eq_ignore_ascii_case(folder_name)
-                    });
+                    let already_exists = demo_games
+                        .iter()
+                        .any(|g| g.title.eq_ignore_ascii_case(folder_name));
 
                     if !already_exists {
                         let clean_slug = folder_name
@@ -151,13 +167,23 @@ pub fn setup_demo_environment() -> Result<Vec<HydraGame>, String> {
                             .filter(|c| c.is_alphanumeric())
                             .collect::<String>()
                             .to_lowercase();
-                        let custom_object_id = format!("demo-{}", if clean_slug.is_empty() { "game" } else { &clean_slug });
+                        let custom_object_id = format!(
+                            "demo-{}",
+                            if clean_slug.is_empty() {
+                                "game"
+                            } else {
+                                &clean_slug
+                            }
+                        );
 
                         demo_games.push(HydraGame {
                             title: folder_name.to_string(),
                             object_id: custom_object_id,
                             shop: Some("custom".to_string()),
-                            executable_path: Some(format!("/tmp/{}.exe", folder_name.replace(' ', "_"))),
+                            executable_path: Some(format!(
+                                "/tmp/{}.exe",
+                                folder_name.replace(' ', "_")
+                            )),
                             is_deleted: Some(false),
                             icon_url: None,
                             has_active_steam_import: Some(false),
@@ -188,14 +214,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_installed_games_concurrent() {
-        let (r1, r2) = tokio::join!(
-            get_installed_games(),
-            get_installed_games()
-        );
+        let (r1, r2) = tokio::join!(get_installed_games(), get_installed_games());
         println!("Concurrent 1: {:?}", r1.as_ref().map(|v| v.len()));
         println!("Concurrent 2: {:?}", r2.as_ref().map(|v| v.len()));
         assert!(r1.is_ok(), "Concurrent 1 failed: {:?}", r1.err());
         assert!(r2.is_ok(), "Concurrent 2 failed: {:?}", r2.err());
     }
 }
-

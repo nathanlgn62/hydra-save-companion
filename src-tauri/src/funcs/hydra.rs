@@ -51,6 +51,7 @@ pub fn expand_path(path_str: &str) -> PathBuf {
         }
         if let Ok(userprofile) = std::env::var("USERPROFILE") {
             expanded = expanded.replace("%USERPROFILE%", &userprofile);
+            expanded = expanded.replace("<home>", &userprofile);
         }
         if let Ok(public) = std::env::var("PUBLIC") {
             expanded = expanded.replace("%PUBLIC%", &public);

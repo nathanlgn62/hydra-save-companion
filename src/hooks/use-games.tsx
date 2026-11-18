@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useMemo } from "react";
+import { useCloudStatus } from "../stores/cloud-store";
 import { useToasts } from "../stores/toast-store";
 import {
   GameProcessInfo,
@@ -13,7 +14,6 @@ import {
 import { parseSaveDate } from "../utils/date";
 import { useDesktopNotification } from "./use-desktop-notification";
 import { useSettings } from "./use-settings";
-import { useCloudStatus } from "../stores/cloud-store";
 
 // Fetch global de tous les jeux
 export function useGames() {
@@ -36,6 +36,7 @@ export function useGames() {
       } else {
         try {
           installedGames = await invoke<HydraGame[]>("get_installed_games");
+          console.log(installedGames);
         } catch (e) {
           console.warn("Hydra games detection error:", e);
           throw e;
@@ -57,18 +58,21 @@ export function useGames() {
             }).catch(() => ""),
           ]);
 
-      let remoteDate = "Never";
+          let remoteDate = "Never";
           let backups: RemoteBackupInfo[] = [];
           if (isDriveConnected && storedToken && saveInfo?.resolvedPath) {
             try {
               const provider =
                 localStorage.getItem("cloud_provider") || "google-drive";
-              const syncStatus = await invoke<SyncStatusResult>("check_game_sync_status", {
-                token: storedToken,
-                gameTitle: game.title,
-                savePath: saveInfo.resolvedPath,
-                provider,
-              });
+              const syncStatus = await invoke<SyncStatusResult>(
+                "check_game_sync_status",
+                {
+                  token: storedToken,
+                  gameTitle: game.title,
+                  savePath: saveInfo.resolvedPath,
+                  provider,
+                },
+              );
 
               if (Array.isArray(syncStatus.backups)) {
                 backups = syncStatus.backups;
@@ -94,20 +98,23 @@ export function useGames() {
             savePath: saveInfo?.resolvedPath ?? null,
             localPathExists: saveInfo?.localPathExists,
             ludasaviPathExists: saveInfo?.ludasaviPathExists,
-            cover: (coverUrl && coverUrl.trim().length > 0) ? coverUrl : game.iconUrl,
+            cover:
+              coverUrl && coverUrl.trim().length > 0 ? coverUrl : game.iconUrl,
             backups,
           } as HydraGame;
         }),
       );
 
       // Notification to Tauri backend
-      const monitoredPayload: GameProcessInfo[] = gamesWithSaves.map((game) => ({
-        title: game.title,
-        executable_name:
-          (game.executablePath || game.title).split(/[/\\]/).pop() ||
-          game.title,
-        save_path: game.savePath ?? null,
-      }));
+      const monitoredPayload: GameProcessInfo[] = gamesWithSaves.map(
+        (game) => ({
+          title: game.title,
+          executable_name:
+            (game.executablePath || game.title).split(/[/\\]/).pop() ||
+            game.title,
+          save_path: game.savePath ?? null,
+        }),
+      );
       await invoke("set_monitored_games", { games: monitoredPayload });
 
       return gamesWithSaves;
@@ -144,14 +151,8 @@ export function useUploadSave() {
         return;
       }
 
-      showToast(
-        `Uploading save for "${gameTitle}" in background...`,
-        "info",
-      );
-      desktopNotification(
-        `${gameTitle}`,
-        `Uploading save to cloud...`,
-      );
+      showToast(`Uploading save for "${gameTitle}" in background...`, "info");
+      desktopNotification(`${gameTitle}`, `Uploading save to cloud...`);
 
       return await invoke<string>("upload_game_save_to_drive", {
         token: storedToken || "",
@@ -170,10 +171,7 @@ export function useUploadSave() {
       queryClient.invalidateQueries({ queryKey: ["cloud-storage"] });
     },
     onError: () => {
-      desktopNotification(
-        "Automatic Synchronization",
-        "Error uploading save",
-      );
+      desktopNotification("Automatic Synchronization", "Error uploading save");
       showToast("Error uploading save", "error");
     },
   });

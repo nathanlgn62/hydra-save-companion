@@ -298,6 +298,10 @@ pub fn resolve_ludasavi_placeholders(
             .into_owned();
         let public = env::var("PUBLIC").unwrap_or_else(|_| r"C:\Users\Public".to_string());
 
+        let os_user = env::var("USERNAME").unwrap_or_else(|_| "*".to_string());
+
+        resolved = resolved.replace("<home>", &user_profile);
+        resolved = resolved.replace("<osUserName>", &os_user);
         resolved = resolved.replace("<winDocuments>", &documents);
         resolved = resolved.replace("<winAppData>", &appdata);
         resolved = resolved.replace("<winLocalAppData>", &localappdata);
@@ -305,6 +309,7 @@ pub fn resolve_ludasavi_placeholders(
         resolved = resolved.replace("<winSavedGames>", &saved_games);
         resolved = resolved.replace("<winPublic>", &public);
         resolved = resolved.replace("<winProgramData>", r"C:\ProgramData");
+        resolved = resolved.replace("<winDir>", r"C:\Windows");
 
         if resolved.contains("<storeUserId>") || resolved.contains("<steamUser>") {
             resolved = resolved.replace("<storeUserId>", "*");

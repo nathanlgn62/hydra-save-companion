@@ -103,7 +103,10 @@ pub async fn get_game_save_info(
                                 || lower.contains("profile")
                             {
                                 best_resolved_str = Some(resolved_str);
-                                break;
+                                if best_resolved_str.as_ref().is_some_and(|b| resolve_path_pattern(b).is_some()) {
+                                    break;
+                                }
+                                continue;
                             }
 
                             if best_resolved_str.is_none() {
