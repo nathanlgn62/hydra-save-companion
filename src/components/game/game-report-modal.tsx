@@ -1,6 +1,18 @@
-import { AlertTriangle, Check, Folder, Mail, Send, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Folder,
+  LogIn,
+  Mail,
+  Send,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useModalAnimation } from "../../hooks/use-modal-animation";
+import { useCloudStatus } from "../../stores/cloud-store";
+import { getReportAuthToken } from "../../utils/cloud-token";
+import { getProviderDisplayName } from "../../utils/provider-display-name";
 
 interface GameReportModalProps {
   gameTitle: string;
@@ -46,8 +58,18 @@ export default function GameReportModal({
   const [message, setMessage] = useState("");
   const [userContact, setUserContact] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [loggingInProvider, setLoggingInProvider] = useState<string | null>(
+    null,
+  );
   const [sentSuccess, setSentSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const {
+    isCloudAccountConnected,
+    cloudProvider,
+    loginGoogle,
+    loginDropbox,
+  } = useCloudStatus();
 
   // Synchronise le chemin quand le modal s'ouvre pour un jeu donné
   useEffect(() => {
@@ -71,9 +93,30 @@ export default function GameReportModal({
     resetFormAndClose,
   );
 
+  const handleLogin = async (provider: "google-drive" | "dropbox") => {
+    setLoggingInProvider(provider);
+    setErrorMessage(null);
+    try {
+      if (provider === "google-drive") {
+        await loginGoogle();
+      } else {
+        await loginDropbox();
+      }
+    } finally {
+      setLoggingInProvider(null);
+    }
+  };
+
   const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+
+    if (!isCloudAccountConnected) {
+      setErrorMessage(
+        "Please connect your Google or Dropbox account before submitting a report.",
+      );
+      return;
+    }
 
     setIsSending(true);
     setErrorMessage(null);
@@ -83,9 +126,14 @@ export default function GameReportModal({
       ISSUE_CATEGORIES.find((c) => c.id === category)?.label || category;
 
     try {
+      const { token, provider } = await getReportAuthToken();
+
       const response = await fetch(REPORT_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           game: gameTitle,
           appId: gameObjectId || null,
@@ -95,6 +143,7 @@ export default function GameReportModal({
           appVersion: APP_VERSION,
           platform,
           userContact: userContact.trim() || null,
+          cloudProvider: provider,
         }),
       });
 
@@ -106,11 +155,13 @@ export default function GameReportModal({
       setTimeout(() => {
         closeWithAnimation();
       }, 2000);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error submitting report:", err);
-      setErrorMessage(
-        "Unable to send report. Please check your internet connection or try again later.",
-      );
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Unable to send report. Please check your internet connection or try again later.";
+      setErrorMessage(msg);
     } finally {
       setIsSending(false);
     }
@@ -186,6 +237,57 @@ export default function GameReportModal({
             {errorMessage && (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
                 {errorMessage}
+              </div>
+            )}
+
+            {/* Cloud Authentication Status */}
+            {!isCloudAccountConnected ? (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-200">
+                      Account required to submit
+                    </p>
+                    <p className="text-slate-400 text-[11px] mt-0.5">
+                      You must be signed in with Google or Dropbox to send a report.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleLogin("google-drive")}
+                    disabled={!!loggingInProvider}
+                    className="px-2.5 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    {loggingInProvider === "google-drive"
+                      ? "Connecting..."
+                      : "Google"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLogin("dropbox")}
+                    disabled={!!loggingInProvider}
+                    className="px-2.5 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    {loggingInProvider === "dropbox"
+                      ? "Connecting..."
+                      : "Dropbox"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 text-slate-300 text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Connected with {getProviderDisplayName(cloudProvider)}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Verified
+                </span>
               </div>
             )}
 
@@ -284,7 +386,14 @@ export default function GameReportModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSending || !message.trim()}
+                  disabled={
+                    isSending || !message.trim() || !isCloudAccountConnected
+                  }
+                  title={
+                    !isCloudAccountConnected
+                      ? "Connect your Google or Dropbox account to submit"
+                      : undefined
+                  }
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium flex items-center gap-2 shadow-sm shadow-indigo-900/30 transition-all cursor-pointer"
                 >
                   {isSending ? (

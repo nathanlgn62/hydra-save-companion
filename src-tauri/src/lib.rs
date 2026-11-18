@@ -6,7 +6,9 @@ mod utils;
 use funcs::watcher::start_process_watcher;
 
 use commands::cloud::download_game_save_from_drive;
+use commands::cloud::get_cloud_auth_token;
 use commands::cloud::get_cloud_storage_info;
+use commands::cloud::get_google_id_token;
 use commands::cloud::login_cloud;
 use commands::cloud::upload_game_save_to_drive;
 use commands::game::check_game_sync_status;
@@ -41,7 +43,9 @@ pub fn run() {
             set_monitored_games,
             download_game_save_from_drive,
             get_steam_cover,
-            get_cloud_storage_info
+            get_cloud_storage_info,
+            get_google_id_token,
+            get_cloud_auth_token
         ])
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;

@@ -79,12 +79,25 @@ export function useCloudStatus() {
     });
   }, []);
 
+  const isGoogleConnected =
+    status.isConnected &&
+    (status.provider === "google-drive" || status.provider === "google");
+
+  const isDropboxConnected =
+    status.isConnected && status.provider === "dropbox";
+
+  const isCloudAccountConnected = isGoogleConnected || isDropboxConnected;
+
   return {
     isDriveConnected: status.isConnected,
     cloudProvider: status.provider,
+    isGoogleConnected,
+    isDropboxConnected,
+    isCloudAccountConnected,
     loginCloud,
     disconnectCloud,
     loginGoogle: () => loginCloud("google-drive"),
+    loginDropbox: () => loginCloud("dropbox"),
     disconnectGoogle: disconnectCloud,
   };
 }

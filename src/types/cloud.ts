@@ -19,3 +19,16 @@ export interface CloudStorageInfo {
   freeBytes?: number | null;
   freeFormatted?: string | null;
 }
+
+export interface GoogleIdTokenResult {
+  idToken: string;
+  updatedCloudToken?: string | null;
+}
+
+export interface CloudAuthTokenResult {
+  token: string;
+  provider: string;
+  updatedCloudToken?: string | null;
+}
+
+

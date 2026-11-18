@@ -38,6 +38,7 @@ tauri-plugin-store = "2.5.0"
 serde_yaml = "0.9.34"
 tauri-plugin-notification = "2.5.1"
 mimalloc = { version = "0.1", default-features = false }
+base64 = "0.22"
 tauri-plugin-autostart = "2.7.0"
 tauri-plugin-updater = "2.13.3"
 tauri-plugin-process = "2.4.0"

@@ -118,7 +118,7 @@ pub async fn login_cloud(app: tauri::AppHandle, provider: String) -> Result<Stri
             "HSC_GS",
             "https://accounts.google.com/o/oauth2/v2/auth",
             "https://oauth2.googleapis.com/token",
-            Some("https://www.googleapis.com/auth/drive.file"),
+            Some("https://www.googleapis.com/auth/drive.file openid email"),
         ),
         "dropbox" => (
             "HSC_DBX_ID",
@@ -262,7 +262,12 @@ pub async fn login_cloud(app: tauri::AppHandle, provider: String) -> Result<Stri
     );
 
     if let Some(s) = scope {
-        auth_url.push_str(&format!("&scope={}", s));
+        let encoded_scope = urlencoding::encode(s);
+        auth_url.push_str(&format!("&scope={}", encoded_scope));
+    }
+
+    if provider == "google-drive" {
+        auth_url.push_str("&prompt=consent");
     }
 
     if provider == "dropbox" {
@@ -317,13 +322,164 @@ pub async fn login_cloud(app: tauri::AppHandle, provider: String) -> Result<Stri
         .and_then(|t| t.as_str())
         .unwrap_or("");
 
+    let id_token = res
+        .get("id_token")
+        .and_then(|t| t.as_str())
+        .unwrap_or("");
+
     // Assure que l'application reste bien au premier plan une fois les jetons obtenus
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.set_focus();
     }
 
-    Ok(format!("{}|{}", access_token, refresh_token))
+    if !id_token.is_empty() {
+        Ok(format!("{}|{}|{}", access_token, refresh_token, id_token))
+    } else {
+        Ok(format!("{}|{}", access_token, refresh_token))
+    }
+}
+
+fn is_jwt_valid(jwt: &str) -> bool {
+    let parts: Vec<&str> = jwt.split('.').collect();
+    if parts.len() != 3 {
+        return false;
+    }
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use base64::Engine;
+    let payload_bytes = match URL_SAFE_NO_PAD.decode(parts[1]) {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&payload_bytes) {
+        if let Some(exp) = json.get("exp").and_then(|v| v.as_i64()) {
+            let now = chrono::Utc::now().timestamp();
+            return exp > now + 60;
+        }
+    }
+    false
+}
+
+#[tauri::command]
+pub async fn get_google_id_token(
+    token: Option<String>,
+) -> Result<crate::models::cloud::GoogleIdTokenResult, String> {
+    let token_store = token.ok_or_else(|| "Aucun jeton de connexion fourni".to_string())?;
+    let parts: Vec<&str> = token_store.split('|').collect();
+
+    let access_token = parts.first().copied().unwrap_or("");
+    let refresh_token = parts.get(1).copied().unwrap_or("");
+    let id_token = parts.get(2).copied().unwrap_or("");
+
+    if !id_token.is_empty() && is_jwt_valid(id_token) {
+        return Ok(crate::models::cloud::GoogleIdTokenResult {
+            id_token: id_token.to_string(),
+            updated_cloud_token: None,
+        });
+    }
+
+    if refresh_token.is_empty() {
+        return Err("Jeton de rafraîchissement Google manquant. Veuillez vous reconnecter à Google.".to_string());
+    }
+
+    let client_id = crate::utils::utils::get_env_var("HSC_GC_ID").unwrap_or_else(|| {
+        "742327849744-gsham3lda4i5pm37jmu2cj10c6mf215i.apps.googleusercontent.com".to_string()
+    });
+    let client_secret = crate::utils::utils::get_env_var("HSC_GS")
+        .unwrap_or_else(|| "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".to_string());
+
+    let client = reqwest::Client::new();
+    let params = [
+        ("client_id", client_id.as_str()),
+        ("client_secret", client_secret.as_str()),
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+    ];
+
+    let res = client
+        .post("https://oauth2.googleapis.com/token")
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| format!("Erreur réseau lors du rafraîchissement Google : {}", e))?;
+
+    if !res.status().is_success() {
+        let err_text = res.text().await.unwrap_or_default();
+        return Err(format!("Échec du rafraîchissement du jeton Google : {}", err_text));
+    }
+
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| format!("Erreur lors du décodage de la réponse Google : {}", e))?;
+
+    let new_id_token = json
+        .get("id_token")
+        .and_then(|t| t.as_str())
+        .ok_or_else(|| {
+            "Google n'a pas renvoyé d'id_token. Veuillez vous reconnecter à votre compte Google pour autoriser l'envoi de rapports.".to_string()
+        })?;
+
+    let new_access_token = json
+        .get("access_token")
+        .and_then(|t| t.as_str())
+        .unwrap_or(access_token);
+
+    let updated_cloud_token = format!("{}|{}|{}", new_access_token, refresh_token, new_id_token);
+
+    Ok(crate::models::cloud::GoogleIdTokenResult {
+        id_token: new_id_token.to_string(),
+        updated_cloud_token: Some(updated_cloud_token),
+    })
+}
+
+#[tauri::command]
+pub async fn get_cloud_auth_token(
+    token: Option<String>,
+    provider: Option<String>,
+) -> Result<crate::models::cloud::CloudAuthTokenResult, String> {
+    let token_store = token.ok_or_else(|| "Aucun jeton de connexion fourni".to_string())?;
+    let provider_name = provider.as_deref().unwrap_or("google-drive").to_lowercase();
+
+    match provider_name.as_str() {
+        "google-drive" | "gdrive" | "google" => {
+            let res = get_google_id_token(Some(token_store)).await?;
+            Ok(crate::models::cloud::CloudAuthTokenResult {
+                token: res.id_token,
+                provider: "google-drive".to_string(),
+                updated_cloud_token: res.updated_cloud_token,
+            })
+        }
+        "dropbox" => {
+            let client = reqwest::Client::new();
+            let valid_access_token = crate::funcs::cloud::get_valid_access_token(
+                &client,
+                &token_store,
+                Some("dropbox"),
+            )
+            .await?;
+
+            let parts: Vec<&str> = token_store.split('|').collect();
+            let old_access_token = parts.first().copied().unwrap_or("");
+            let refresh_token = parts.get(1).copied().unwrap_or("");
+
+            let updated_cloud_token = if valid_access_token != old_access_token && !refresh_token.is_empty() {
+                Some(format!("{}|{}", valid_access_token, refresh_token))
+            } else {
+                None
+            };
+
+            Ok(crate::models::cloud::CloudAuthTokenResult {
+                token: valid_access_token,
+                provider: "dropbox".to_string(),
+                updated_cloud_token,
+            })
+        }
+        other => Err(format!(
+            "Fournisseur cloud '{}' non supporté pour les signalements.",
+            other
+        )),
+    }
 }
 
 #[tauri::command]
@@ -335,3 +491,56 @@ pub async fn get_cloud_storage_info(
     let provider_name = provider.as_deref().unwrap_or("google-drive");
     crate::funcs::cloud::get_cloud_storage_info(&client, &token, Some(provider_name)).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use base64::Engine;
+
+    fn create_dummy_jwt(exp: i64) -> String {
+        let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"RS256","typ":"JWT"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(format!(r#"{{"sub":"123","exp":{}}}"#, exp));
+        let signature = URL_SAFE_NO_PAD.encode("fake_signature");
+        format!("{}.{}.{}", header, payload, signature)
+    }
+
+    #[test]
+    fn test_is_jwt_valid_with_future_exp() {
+        let future_exp = chrono::Utc::now().timestamp() + 3600;
+        let jwt = create_dummy_jwt(future_exp);
+        assert!(is_jwt_valid(&jwt));
+    }
+
+    #[test]
+    fn test_is_jwt_valid_with_past_exp() {
+        let past_exp = chrono::Utc::now().timestamp() - 100;
+        let jwt = create_dummy_jwt(past_exp);
+        assert!(!is_jwt_valid(&jwt));
+    }
+
+    #[test]
+    fn test_is_jwt_valid_with_malformed_string() {
+        assert!(!is_jwt_valid(""));
+        assert!(!is_jwt_valid("not.a.valid.jwt.four.parts"));
+        assert!(!is_jwt_valid("invalid-base64.invalid-base64.invalid"));
+    }
+
+    #[tokio::test]
+    async fn test_get_cloud_auth_token_missing_token() {
+        let res = get_cloud_auth_token(None, Some("dropbox".to_string())).await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_cloud_auth_token_unsupported_provider() {
+        let res = get_cloud_auth_token(
+            Some("fake_token".to_string()),
+            Some("unsupported_cloud".to_string()),
+        )
+        .await;
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("non supporté"));
+    }
+}
+

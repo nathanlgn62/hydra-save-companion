@@ -27,3 +27,18 @@ pub struct CloudStorageInfo {
     pub free_bytes: Option<u64>,
     pub free_formatted: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleIdTokenResult {
+    pub id_token: String,
+    pub updated_cloud_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudAuthTokenResult {
+    pub token: String,
+    pub provider: String,
+    pub updated_cloud_token: Option<String>,
+}
